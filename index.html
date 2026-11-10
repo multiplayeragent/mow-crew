@@ -1,0 +1,1580 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mow Crew</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; background: #cdebf5; }
+  body { font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #fff; user-select: none; -webkit-user-select: none; }
+  canvas { display: block; touch-action: none; }
+  .hud { position: fixed; pointer-events: none; text-shadow: 0 2px 4px #0009; font-weight: 800; }
+  #top { top: max(10px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); }
+  #clock { font-size: 14px; }
+  #cash { font-size: 34px; line-height: 1.05; color: #ffe066; }
+  #cash small { font-size: 13px; color: #fff; margin-left: 6px; }
+  #bag { position: relative; margin-top: 6px; width: 156px; height: 18px; border-radius: 10px; border: 2px solid #ffffffd0; background: #0000004d; overflow: hidden; }
+  #bagFill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(#a6e36b, #4caf50); transition: width .15s; }
+  #bag.full { animation: blink .45s infinite alternate; }
+  #bag.full #bagFill { background: linear-gradient(#ff8a65, #e53935); }
+  #bagTxt { position: absolute; inset: 0; font-size: 11px; line-height: 18px; text-align: center; letter-spacing: .04em; }
+  @keyframes blink { to { border-color: #ff5252; transform: scale(1.05); } }
+  #ranks { top: max(10px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); padding: 5px 10px 7px; border-radius: 12px; background: #1d3a2455; font-size: 13px; text-align: right; }
+  #ranks:empty { display: none; }
+  #ranks div { margin-top: 2px; } #ranks i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-left: 6px; vertical-align: -1px; }
+  #ranks .me { color: #ffe066; }
+  #event { top: calc(max(10px, env(safe-area-inset-top)) + 118px); right: max(12px, env(safe-area-inset-right)); padding: 4px 10px; border-radius: 10px; background: #ff5a5fdd; font-size: 13px; text-shadow: none; }
+  #event:empty { display: none; }
+  #status { left: 16px; right: 16px; top: calc(max(10px, env(safe-area-inset-top)) + 100px); text-align: center; font-size: 18px; }
+  #status small { display: block; font-size: 14px; font-weight: 600; }
+  #status .warn { color: #ffc2b5; }
+  #toast { left: 16px; right: 16px; top: 33%; text-align: center; font-size: 34px; color: #ffe066; opacity: 0; transform: translateY(10px); transition: opacity .3s, transform .3s; }
+  #toast small { display: block; font-size: 15px; color: #fff; }
+  #toast.on { opacity: 1; transform: none; }
+  #hint { left: 16px; right: 16px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 24px); text-align: center; font-size: 14px; transition: opacity .8s; }
+  #hint span { display: inline-block; padding: 7px 14px; border-radius: 14px; background: #0000005c; }
+  #net { bottom: max(8px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); font-size: 12px; font-weight: 600; opacity: .85; white-space: nowrap; }
+  #stick { position: fixed; width: 110px; height: 110px; margin: -55px 0 0 -55px; border-radius: 50%; border: 2px solid #ffffff99; background: #ffffff1f; pointer-events: none; }
+  #stick i { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: #ffffffaa; }
+  #over { position: fixed; inset: 0; display: grid; place-items: center; background: #0006; }
+  .card { box-sizing: border-box; width: min(380px, calc(100vw - 32px)); max-height: 88vh; overflow: auto; padding: 18px; border-radius: 18px; background: #24402c; border: 1px solid #ffffff2a; text-align: center; }
+  .card h2 { margin: 0 0 2px; font-size: 24px; }
+  .card h3 { margin: 14px 0 4px; font-size: 12px; color: #ffe066; text-align: left; text-transform: uppercase; letter-spacing: .06em; }
+  .card p { margin: 4px 0 0; font-size: 14px; opacity: .9; }
+  .card ol { margin: 0; padding-left: 24px; text-align: left; font-size: 14px; }
+  .card li { margin: 2px 0; } .card li span { float: right; font-variant-numeric: tabular-nums; }
+  .card li.me { color: #ffe066; font-weight: 800; } .card li i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; }
+  .up { display: flex; align-items: center; gap: 8px; box-sizing: border-box; width: 100%; min-height: 46px; margin-top: 6px; padding: 6px 10px; border: 0; border-radius: 12px; background: #ffffff1c; color: #fff; font: 700 14px system-ui, sans-serif; text-align: left; cursor: pointer; }
+  .up b { flex: 1; } .up small { letter-spacing: 2px; color: #a6e36b; } .up span { min-width: 54px; padding: 4px 8px; border-radius: 8px; background: #ffe066; color: #3a2a00; text-align: center; font-weight: 900; }
+  .up:disabled { opacity: .5; cursor: default; }
+  button.go { width: 100%; min-height: 48px; margin-top: 14px; border: 0; border-radius: 14px; background: #ffe066; color: #3a2a00; font: 900 17px system-ui, sans-serif; cursor: pointer; }
+  [hidden] { display: none !important; }
+  .attract .hud, .attract #stick { display: none !important; }
+  @media (max-width: 520px) { #cash { font-size: 28px; } #bag { width: 128px; } #ranks { font-size: 12px; } #status { font-size: 16px; top: calc(max(10px, env(safe-area-inset-top)) + 96px); } #toast { font-size: 28px; } }
+</style>
+<script src="https://cdn.multiplayeragent.com/sdk/mp.global.js"></script>
+<script type="importmap">{ "imports": { "three": "./libs/three.module.min.js" } }</script>
+</head>
+<body>
+<div class="hud" id="top"><div id="clock"></div><div id="cash"></div><div id="bag"><div id="bagFill"></div><div id="bagTxt">BAG</div></div></div>
+<div class="hud" id="ranks"></div>
+<div class="hud" id="event"></div>
+<div class="hud" id="status"></div>
+<div class="hud" id="toast"></div>
+<div class="hud" id="hint"></div>
+<div class="hud" id="net">Connecting…</div>
+<div id="stick" hidden><i></i></div>
+<div id="over" hidden><div class="card">
+  <h2 id="overTitle">Day done!</h2><p id="overSub"></p>
+  <h3>Crews today</h3><ol id="results"></ol>
+  <h3>Best days on the street</h3><ol id="board"><li>Loading…</li></ol>
+  <h3 id="upTitle">Upgrades</h3><div id="ups"></div>
+  <button class="go" id="again">Back to work</button><p id="overNext"></p>
+</div></div>
+<script type="module">
+/* ═══ MOW CREW · a Multiplayer Agent starter ════════════════════════════════════════════
+ * Mow the lawns on Maple Street in neat stripes. Drop-in, 1–8 players; bot crews mow too.
+ *
+ * WHERE THINGS ARE (search for the "── " headers):
+ *   CONFIG ........ day length, mower speed, deck, bag, prices, regrowth, hazards, bots
+ *   CONNECTION .... MP_CONNECT, joining, the offline room, who is host, live ops
+ *   STREET ........ the 8 yards (flower beds, gnomes, sprinklers, dogs), dumps, solid things
+ *   GRASS GRID .... each yard as cells: cut or not and in which stripe, packing, stats
+ *   SCENE ......... the diorama: board, road, houses, hedges, trees, the truck, compost bins
+ *   LAWNS ......... drawing the yards: stripe textures, waving grass tufts, beds, signs
+ *   MODELS ........ mowers, dogs, the arrow, particles and pop-up text
+ *   DAY (HOST) .... the work day, every yard's grid, payouts, regrowth, cuts from paths
+ *   BOTS (HOST) ... bot crews (pick a yard, mow rows, fix patches, empty the bag), dogs
+ *   MY MOWER ...... driving, cutting on my screen at once, the bag, hazards, publishing
+ *   OTHERS ........ other mowers, eased between snapshots, their cuts drawn right away
+ *   HUD & RESULTS . cash, clock, bag, ranks, status, results, leaderboard, upgrades, saves
+ *   INPUT ......... keyboard, hold the mouse, drag anywhere on touch
+ *   MAIN LOOP ..... frame(), the camera, start()
+ *
+ * HOW THE MULTIPLAYER WORKS (a relay room: no server code):
+ *   - Each player writes its OWN entity: `k` (one JSON field: position, heading, speed,
+ *     mowing on/off, deck size, bag fill) about 12 times a second, `n`/`c` (name, color)
+ *     once and `hb` (heartbeat) once a second.
+ *   - You mow on your own screen at once: the cells under your deck turn to stripes right
+ *     away (a "pending" copy), so the satisfying part never waits for the network.
+ *   - The HOST is the lowest sessionId among live players (heartbeat seen in the last 3s),
+ *     worked out every frame. It owns the grass: it redraws every mower's path from the `k`
+ *     snapshots (a line from each one to the next, so fast mowers leave no gaps) onto its
+ *     grids, and writes one shared field per yard, `y0`…`y7`: version `v`, day, state,
+ *     price, who cut how much, beds hit, and the cells packed 2 bits each in base64.
+ *   - The host also writes `day` (id, v, phase, end time, everyone's cash, the results:
+ *     ONE JSON field, `v` only goes up) and `bots` (bot crews and the dogs, ~10/s).
+ *     A new host adopts all of them from state and carries on.
+ *   - Everyone draws a yard from the host's field with their own pending cells on top until
+ *     the host's copy has them, so a cut never flickers back to long grass.
+ *   - The host pays a yard once 95% is cut (plus a few seconds to finish), split by how many
+ *     cells each mower cut, and spots flower beds in the paths it redraws. Effects are
+ *     events: "paid", "petals", "bit" (the dog got you: you stall), "woof", "bonk" (a
+ *     gnome) and "dump".
+ *   - Timers are timestamps: the day's end, each yard's finishing window and regrowth.
+ *   - Leaderboard "best-day": each player's best day's cash. Savings and upgrades are a
+ *     player save (namespace CONFIG.saveNs); offline, this browser.
+ *   - Live ops: `payBonus` multiplies every price; running events show top right.
+ *   - ?attract plays offline with bot crews only (the preview video is recorded from it).
+ */
+import * as THREE from "three";
+
+// ── CONFIG ──────────────────────────────────────────────────────────────────────────
+const CONFIG = {
+  dayMs: 180000,           // one work day
+  resultsMs: 14000,        // the results card, then the next day starts
+  seats: 4,                // bot crews fill the street up to this many mowers
+  speed: 5.4,              // your mower's top speed (units/s) before upgrades
+  accel: 10,               // how fast mowers pick up speed
+  turn: 4.2,               // how fast mowers turn (radians/s)
+  deck: 0.75,              // cutting radius before upgrades (the stripe is twice as wide)
+  bag: 450,                // grass cells the bag holds before upgrades
+  upgrades: { deck: 0.15, speed: 0.8, bag: 0.45 }, // per level: more cutting radius, more top speed, more bag (share of its size)
+  upgradeCost: [80, 160, 280], // what levels 1, 2 and 3 cost
+  doneAt: 0.95,            // share of a yard's grass to cut before it pays...
+  tidyMs: 5000,            // ...after a few more seconds to finish the patches (all of it = PERFECT)
+  neatPerfect: 0.8,        // stripes this neat also earn PERFECT
+  perfectBonus: 0.5,       // PERFECT adds this share of the price
+  pricePerCell: 0.045,     // $ per cell of long grass when a yard comes up
+  payBonus: 1,             // live ops: multiplies every price
+  flowerFine: 5,           // $ off for mowing a flower bed
+  restMs: 25000,           // a finished yard stays neat this long,
+  regrowPerSec: 30,        // then this many cells grow back each second,
+  reopenAt: 0.55,          // until this share is long again: it's a job again
+  wetSlow: 0.55,           // speed in a sprinkler's spray (wet grass fills the bag twice as fast)
+  sprinklerMs: [16000, 6000], // a sprinkler's cycle, and how much of it it sprays
+  dogYards: [2, 5],        // yards with a sleeping dog
+  dogWake: 3.4,            // driving this close wakes the dog
+  dogSpeed: 4.3,           // how fast it runs after you
+  dogChaseMs: 6500,        // how long it chases
+  dogNapMs: 12000,         // how long it naps before it can wake again
+  dogStunMs: 1800,         // caught: your mower stalls this long...
+  dogFine: 5,              // ...and you pay this
+  gnomeStunMs: 600,        // bumping a garden gnome stalls you this long
+  botSpeed: 4.8,           // bot crews' top speed
+  board: "best-day",       // leaderboard: each player's best day's cash
+  saveNs: "mow-crew",      // player-save namespace for savings and upgrades
+};
+const BOT_NAMES = ["Fern", "Basil", "Clover", "Moss", "Rowan", "Hazel", "Sage", "Willow", "Juniper", "Olive"];
+const COLORS = ["#ff5a5f", "#3fa7ff", "#ffb627", "#b57bff", "#ff8a3d", "#2ec4b6", "#ff6fb5", "#3b5bdb", "#f1f1f1", "#a0785a"];
+
+// ── CONNECTION ──────────────────────────────────────────────────────────────────────
+// The builder fills these in for this game. Downloaded from GitHub? Put your own pk_ key here.
+const MP_CONNECT = {
+  key: 'pk_REPLACE_ME',
+  room: 'mow-crew',
+  endpoint: 'wss://live.multiplayeragent.com',
+  apiUrl: 'https://api.multiplayeragent.com',
+};
+const ATTRACT = new URLSearchParams(location.search).has("attract");
+const TEST = new URLSearchParams(location.search).has("test");
+if (ATTRACT) Object.assign(CONFIG, { seats: 6, dayMs: 75000, resultsMs: 1500, doneAt: 0.9, tidyMs: 900, restMs: 9000, regrowPerSec: 70 });
+
+/** Same shape as the SDK client, kept in this tab: offline play and ?attract. */
+function localRoom() {
+  const id = "local", state = { entities: { players: { [id]: {} } }, shared: {} }, subs = [];
+  let queued = false;
+  const emit = () => { if (!queued) { queued = true; queueMicrotask(() => { queued = false; subs.forEach((f) => f(state)); }); } };
+  const put = (o, k, v) => { if (typeof k === "object") Object.assign(o, k); else o[k] = v; emit(); };
+  return {
+    sessionId: id, state, offline: true, live: { config: {}, active: [] },
+    me: { set: (k, v) => put(state.entities.players[id], k, v) },
+    setShared: (k, v) => put(state.shared, k, v),
+    onState: (f) => { subs.push(f); f(state); }, onJoin() {}, onLeave() {}, on() {}, send() {}, onLive() {},
+    onDisconnect() {}, onReconnect() {}, leave: async () => {},
+  };
+}
+async function connect() {
+  if (ATTRACT || typeof MP === "undefined") return localRoom();
+  try {
+    const mp = await Promise.race([MP.join({ ...MP_CONNECT }), new Promise((_, no) => setTimeout(() => no(new Error("timed out")), 10000))]);
+    window.mp = mp; // the builder calls window.mp.leave() when the page closes
+    return mp;
+  } catch (e) {
+    console.warn("Playing offline:", e && e.message);
+    return localRoom();
+  }
+}
+const parse = (v, fb) => { if (typeof v !== "string") return fb; try { return JSON.parse(v); } catch { return fb; } };
+let net = null, S = { entities: { players: {} }, shared: {} }, reconnecting = false;
+const memo = new Map();
+/** A JSON value from state, parsed once per change (read-only: never mutate what this returns). */
+function parseOnce(key, raw, fallback) { const m = memo.get(key); if (m && m.raw === raw) return m.v; const v = parse(raw, fallback); memo.set(key, { raw, v }); return v; }
+const shared = (key, fallback) => parseOnce("shared:" + key, S.shared[key], fallback);
+const seenHb = new Map();
+/** Players whose heartbeat moved in the last 3s (plus me), sorted by sessionId. */
+function livePlayers() {
+  const now = performance.now(), out = [];
+  for (const [id, p] of Object.entries(S.entities.players || {})) {
+    const s = seenHb.get(id);
+    if (!s || s.hb !== p.hb) seenHb.set(id, { hb: p.hb, at: now });
+    if (id === net.sessionId || now - seenHb.get(id).at < 3000) out.push(id);
+  }
+  return out.sort();
+}
+let frameAt = 0, wokeAt = -1e9; // my loop's last frame, and when it last woke from a stall (a frozen or background tab)
+/** Never while my own loop is stalled, nor for 0.7s after it wakes: the room moved on without me, so the newer state lands first. */
+const isHost = () => livePlayers()[0] === net.sessionId && performance.now() - frameAt < 1000 && performance.now() - wokeAt > 700;
+/** A live-ops tunable: the owner's live config if it has one of the right type, else CONFIG. */
+function liveCfg(k) { const v = net && net.live && net.live.config ? net.live.config[k] : undefined; return typeof v === typeof CONFIG[k] ? v : CONFIG[k]; }
+function mulberry32(a) { return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const rnd = (a, b) => a + Math.random() * (b - a), pick = (list) => list[Math.floor(Math.random() * list.length)];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+
+// ── STREET ──────────────────────────────────────────────────────────────────────────
+// Maple Street runs along x. Four lots on each side: a yard (the job), a driveway, a house
+// behind and a hedge to the next lot. In a yard, `u` runs along the street (0..YW) and `w`
+// from the sidewalk (0) back to the house (YD).
+const CELL = 0.4, COLS = 40, ROWS = 27, CELLS = COLS * ROWS, YW = COLS * CELL, YD = ROWS * CELL; // a yard is 16 × 10.8
+const ROAD = 3.6, WALK = 5.2, FRONT = 5.6, BACK = FRONT + YD; // |z| of the road's edge, the sidewalk's edge, a yard's front and back
+const LANE = 2.6, EDGE_X = 44.3;                         // the lane bots drive along; how far along x anyone can drive
+const LOT_X = [-31.5, -10.5, 10.5, 31.5];                // yard centers along the street (both sides)
+const HEDGE_X = [-40.2, -19.4, 1.6, 22.6, 43.6];         // the hedges between lots
+const GRASS = 0, BED = 1, BLOCKED = 2;                   // what a cell is
+const BED_REACH = 0.6;                                   // share of the deck that must reach a bed to chop its flowers
+const wx = (yd, u) => yd.x0 + u, wz = (yd, w) => yd.side * (FRONT + w); // yard → world
+const lu = (yd, x) => x - yd.x0, lw = (yd, z) => yd.side * z - FRONT;   // world → yard
+const SOLIDS = [];  // mowers can't drive through these: { x, z, r } circles and { x0, x1, z0, z1 } boxes
+const DUMPS = [{ x: 0, z: 0, r: 3.6, truck: true }, { x: -19.4, z: 4.5, r: 2.5 }, { x: 22.6, z: -4.5, r: 2.5 }, { x: -40.2, z: -4.5, r: 2.5 }, { x: 43.6, z: 4.5, r: 2.5 }];
+const inBed = (bd, u, w) => (bd.kind === "strip" ? u >= bd.u0 && u <= bd.u1 && w >= bd.w0 : Math.hypot(u - bd.u, w - bd.w) < bd.r);
+const Y = [];       // the yards' layout, the same on every screen (what's cut lives in lawn[i])
+for (let i = 0; i < 8; i++) {
+  const side = i < 4 ? 1 : -1, cx = LOT_X[i % 4], rng = mulberry32(911 + i * 77), dogHere = CONFIG.dogYards.includes(i);
+  const yd = { i, side, cx, x0: cx - YW / 2, num: side > 0 ? 2 + (i % 4) * 2 : 1 + (i % 4) * 2, beds: [], solidsL: [], spr: null, dog: null,
+    kind: new Uint8Array(CELLS), bedOf: new Uint8Array(CELLS), grass: [], grassN: 0, order: [], rows: [], safe: new Uint8Array(CELLS), noise: new Float32Array(CELLS) };
+  // A flower bed along the house (left half, right half or all of it), maybe a round one in a front corner.
+  const k = dogHere ? 0 : Math.floor(rng() * 3), strip = { kind: "strip", u0: [0.6, 8.2, 0.6][k], u1: [7.8, 15.4, 15.4][k], w0: YD - 1.6 };
+  yd.beds.push(strip);
+  const round = rng() < 0.6 ? { kind: "round", u: rng() < 0.5 ? 0 : YW, w: 0, r: 2.3 } : null;
+  if (round) yd.beds.push(round);
+  // Garden gnomes: one beside the house bed, maybe one by the round bed.
+  yd.solidsL.push({ u: k === 0 ? strip.u1 + 0.6 : k === 1 ? strip.u0 - 0.6 : 0.55, w: k === 2 ? YD - 2.1 : YD - 0.9, r: 0.3, gnome: true });
+  if (round && rng() < 0.5) yd.solidsL.push({ u: round.u + (round.u ? -2 : 2), w: 2, r: 0.3, gnome: true });
+  if (i % 3 === 1) yd.spr = { u: YW / 2 + (rng() - 0.5) * 4, w: 4.2 + rng() * 1.5, phase: rng() * CONFIG.sprinklerMs[0] };
+  if (dogHere) { yd.solidsL.push({ u: YW - 1.1, w: YD - 1.0, r: 0.9, house: true }); yd.dog = { x: wx(yd, YW - 2.7), z: wz(yd, YD - 2.4), h: side > 0 ? Math.PI : 0 }; }
+  for (let c = 0; c < CELLS; c++) {
+    const u = ((c % COLS) + 0.5) * CELL, w = (Math.floor(c / COLS) + 0.5) * CELL;
+    yd.beds.forEach((bd, b) => { if (inBed(bd, u, w)) { yd.kind[c] = BED; yd.bedOf[c] = b + 1; } });
+    for (const s of yd.solidsL) if (Math.hypot(u - s.u, w - s.w) < s.r + 0.15) yd.kind[c] = BLOCKED;
+    if (yd.kind[c] === GRASS) yd.grass.push(c);
+    yd.noise[c] = 0.93 + rng() * 0.14;
+  }
+  yd.grassN = yd.grass.length;
+  yd.solidsL.forEach((s, n) => SOLIDS.push({ x: wx(yd, s.u), z: wz(yd, s.w), r: s.r, gnome: s.gnome ? { y: i, n } : null }));
+  // Regrowth comes back in clumps: cells ordered by a smooth noise, the highest first.
+  const ph = [rng() * 6.3, rng() * 6.3, rng() * 6.3], score = (c) => { const u = (c % COLS) * CELL, w = Math.floor(c / COLS) * CELL; return Math.sin(u * 0.5 + ph[0]) + Math.sin(w * 0.65 + ph[1]) + Math.sin((u - w) * 0.33 + ph[2]) + rng() * 0.9; };
+  yd.order = yd.grass.map((c) => [c, score(c)]).sort((a, b) => b[1] - a[1]).map((e) => e[0]);
+  yd.fancy = 1 + 0.08 * (yd.beds.length + yd.solidsL.length + (yd.spr ? 1 : 0) + (dogHere ? 1 : 0)); // fussier yards pay more
+  Y.push(yd);
+}
+/** The stretch [a, b] of a row (at depth w) a deck of radius dr can mow without touching a bed, a gnome or the doghouse. */
+function rowSpan(yd, w, dr) {
+  let a = dr * 0.75, b = YW - dr * 0.75;
+  const reach = dr * BED_REACH + 0.15;
+  const cut = (lo, hi) => { if (hi <= a || lo >= b) return; if (lo - a >= b - hi) b = Math.min(b, lo); else a = Math.max(a, hi); }; // keep the longer side
+  const circle = (cu, cw, R) => { const dw = Math.abs(w - cw); if (dw < R) { const h = Math.sqrt(R * R - dw * dw); cut(cu - h, cu + h); } };
+  for (const bd of yd.beds) { if (bd.kind === "strip") { if (w + reach > bd.w0) cut(bd.u0 - reach, bd.u1 + reach); } else circle(bd.u, bd.w, bd.r + reach); }
+  for (const s of yd.solidsL) circle(s.u, s.w, s.r + dr + 0.9);
+  return b - a > 1.2 ? { w, a, b } : null;
+}
+/** Rows across a yard, front to back, overlapping a little, plus one hugging the house bed: how bot crews mow it. */
+function planRows(yd, dr) {
+  const first = dr * 0.75, last = YD - dr * 0.75, n = Math.ceil((last - first) / (2 * dr * 0.85)) + 1, ws = [];
+  for (let k = 0; k < n; k++) ws.push(first + ((last - first) * k) / (n - 1));
+  for (const bd of yd.beds) if (bd.kind === "strip") { const w = bd.w0 - dr * BED_REACH - 0.2; if (!ws.some((o) => Math.abs(o - w) < 0.3)) ws.push(w); }
+  return ws.sort((a, b) => a - b).map((w) => rowSpan(yd, w, dr)).filter(Boolean);
+}
+/** A cell a bot can drive onto to fix a patch without chopping flowers or bumping into things. */
+function safeSpot(yd, c, dr) {
+  const u = ((c % COLS) + 0.5) * CELL, w = (Math.floor(c / COLS) + 0.5) * CELL, reach = dr * BED_REACH + 0.2;
+  for (const bd of yd.beds) {
+    if (bd.kind === "strip") { if (w + reach > bd.w0 && u + reach > bd.u0 && u - reach < bd.u1) return false; }
+    else if (Math.hypot(u - bd.u, w - bd.w) < bd.r + reach) return false;
+  }
+  return yd.solidsL.every((s) => Math.hypot(u - s.u, w - s.w) > s.r + dr + 0.3);
+}
+for (const yd of Y) {
+  yd.rows = planRows(yd, CONFIG.deck);
+  for (const c of yd.grass) yd.safe[c] = safeSpot(yd, c, CONFIG.deck) ? 1 : 0;
+  // For a patch a bot can't drive onto (by a bed or a gnome), the nearest safe spot whose deck still reaches it.
+  yd.cover = new Int16Array(CELLS).fill(-1);
+  for (const c of yd.grass) {
+    const col = c % COLS, row = Math.floor(c / COLS); let best = -1, bd = Infinity;
+    for (let r = Math.max(0, row - 2); r <= Math.min(ROWS - 1, row + 2); r++) for (let k = Math.max(0, col - 2); k <= Math.min(COLS - 1, col + 2); k++) {
+      const o = r * COLS + k, d = (r - row) ** 2 + (k - col) ** 2;
+      if (yd.safe[o] && d * CELL * CELL <= (CONFIG.deck - 0.15) ** 2 && d < bd) { bd = d; best = o; }
+    }
+    yd.cover[c] = best;
+  }
+}
+/** Can a mower drive straight from a to b in this yard without chopping flowers or bumping a gnome? */
+function clearPath(yd, ax, az, bx, bz, r) {
+  let ok = true;
+  forCells(yd, ax, az, bx, bz, r * BED_REACH + 0.3, (c) => { if (yd.bedOf[c]) ok = false; });
+  if (!ok) return false;
+  const dx = bx - ax, dz = bz - az, len2 = dx * dx + dz * dz || 1;
+  return yd.solidsL.every((s) => { const sx = wx(yd, s.u), sz = wz(yd, s.w), t = clamp(((sx - ax) * dx + (sz - az) * dz) / len2, 0, 1); return Math.hypot(ax + dx * t - sx, az + dz * t - sz) > s.r + 1.1; });
+}
+// Hedges between lots, trees and bins on the sidewalk, the truck in the middle of the road.
+const HEDGE_Z = FRONT + 1.2; // hedges start a little behind the sidewalk, so you can drive round the front of a lot
+for (const hx of HEDGE_X) for (const s of [1, -1]) SOLIDS.push({ x0: hx - 0.5, x1: hx + 0.5, z0: s > 0 ? HEDGE_Z : -BACK - 0.6, z1: s > 0 ? BACK + 0.6 : -HEDGE_Z });
+const STREET_TREES = HEDGE_X.flatMap((x) => [[x, 4.5], [x, -4.5]]).filter(([x, z]) => !DUMPS.some((d) => d.x === x && d.z === z));
+for (const [x, z] of STREET_TREES) SOLIDS.push({ x, z, r: 0.45 });
+for (const d of DUMPS) if (!d.truck) SOLIDS.push({ x: d.x, z: d.z, r: 0.6 });
+SOLIDS.push({ x0: -2.4, x1: 2.4, z0: -1.15, z1: 1.15 }); // the truck
+const nearestDump = (x, z) => DUMPS.reduce((a, d) => (Math.hypot(d.x - x, d.z - z) < Math.hypot(a.x - x, a.z - z) ? d : a), DUMPS[0]);
+const sprinklerOn = (yd, t) => !!yd.spr && (t + yd.spr.phase) % CONFIG.sprinklerMs[0] < CONFIG.sprinklerMs[1];
+/** Inside a running sprinkler's spray? */
+function wetAt(x, z) { const t = Date.now(); return Y.some((yd) => sprinklerOn(yd, t) && Math.hypot(x - wx(yd, yd.spr.u), z - wz(yd, yd.spr.w)) < 2.8); }
+
+// ── GRASS GRID ──────────────────────────────────────────────────────────────────────
+// A yard is COLS × ROWS cells. Each grass cell is 0 (long grass), 1 (cut, light stripe) or
+// 2 (cut, dark stripe). The stripe comes from the way the mower was going, like real lawns.
+const stripeOf = (dx, dz) => (Math.abs(dx) >= Math.abs(dz) ? (dx > 0 ? 1 : 2) : dz < 0 ? 1 : 2);
+/** Calls fn(cell) for every cell of the yard whose center is within r of the line a→b. */
+function forCells(yd, ax, az, bx, bz, r, fn) {
+  const au = lu(yd, ax), aw = lw(yd, az), bu = lu(yd, bx), bw = lw(yd, bz);
+  const c0 = Math.max(0, Math.floor((Math.min(au, bu) - r) / CELL)), c1 = Math.min(COLS - 1, Math.floor((Math.max(au, bu) + r) / CELL));
+  const r0 = Math.max(0, Math.floor((Math.min(aw, bw) - r) / CELL)), r1 = Math.min(ROWS - 1, Math.floor((Math.max(aw, bw) + r) / CELL));
+  const du = bu - au, dw = bw - aw, len2 = du * du + dw * dw, rr = r * r;
+  for (let row = r0; row <= r1; row++) for (let col = c0; col <= c1; col++) {
+    const pu = (col + 0.5) * CELL, pw = (row + 0.5) * CELL;
+    const t = len2 > 0 ? clamp(((pu - au) * du + (pw - aw) * dw) / len2, 0, 1) : 0, eu = au + du * t - pu, ew = aw + dw * t - pw;
+    if (eu * eu + ew * ew <= rr) fn(row * COLS + col);
+  }
+}
+/** The yards a line (widened by r) passes over. */
+function yardsAlong(ax, az, bx, bz, r) {
+  const x0 = Math.min(ax, bx) - r, x1 = Math.max(ax, bx) + r, z0 = Math.min(az, bz) - r, z1 = Math.max(az, bz) + r;
+  return Y.filter((yd) => x1 >= yd.x0 && x0 <= yd.x0 + YW && (yd.side > 0 ? z1 >= FRONT && z0 <= BACK : z1 >= -BACK && z0 <= -FRONT));
+}
+const yardAt = (x, z) => Y.find((yd) => { const u = lu(yd, x), w = lw(yd, z); return u >= 0 && u <= YW && w >= 0 && w <= YD; }) || null;
+/** 2 bits a cell, as base64: about 360 characters a yard. */
+function packGrid(g) { let s = ""; for (let i = 0; i < CELLS; i += 4) s += String.fromCharCode(g[i] | (g[i + 1] << 2) | (g[i + 2] << 4) | (g[i + 3] << 6)); return btoa(s); }
+function unpackGrid(s) { const bin = atob(s), g = new Uint8Array(CELLS); for (let i = 0; i < CELLS; i++) g[i] = (bin.charCodeAt(i >> 2) >> ((i & 3) * 2)) & 3; return g; }
+const rowL = new Int16Array(ROWS), rowD = new Int16Array(ROWS), colL = new Int16Array(COLS), colD = new Int16Array(COLS);
+/** How much of a yard is cut, and how neat the stripes are (1 = every row, or every column, all one way). */
+function yardStats(yd, grid) {
+  rowL.fill(0); rowD.fill(0); colL.fill(0); colD.fill(0);
+  let cut = 0;
+  for (const c of yd.grass) {
+    const v = grid[c]; if (v !== 1 && v !== 2) continue;
+    cut++; const r = (c / COLS) | 0, k = c % COLS;
+    if (v === 1) { rowL[r]++; colL[k]++; } else { rowD[r]++; colD[k]++; }
+  }
+  let byRow = 0, byCol = 0;
+  for (let r = 0; r < ROWS; r++) byRow += Math.max(rowL[r], rowD[r]);
+  for (let k = 0; k < COLS; k++) byCol += Math.max(colL[k], colD[k]);
+  return { cut, pct: cut / yd.grassN, neat: cut ? Math.max(byRow, byCol) / cut : 1 };
+}
+// Every yard's lawn: `g` is the host's grid (on the host, its live copy); `shown` is what this
+// screen draws (`g` plus my pending cuts). s: "o" open (a job) or "r" resting after it paid.
+const lawn = Y.map(() => ({ g: new Uint8Array(CELLS), v: 0, d: 0, s: "o", p: 0, f: 0, r: 0, fb: 0, c: {}, raw: null,
+  dirty: false, lastW: 0, acc: 0, hs: null, shown: new Uint8Array(CELLS).fill(255), pend: new Map(), growing: new Map(), redraw: true, ds: { cut: 0, pct: 0, neat: 1 }, dsAt: 0 }));
+/** Take a yard from its shared field (when it changed). */
+function readLawn(i) {
+  const L = lawn[i], raw = S.shared["y" + i];
+  if (raw === L.raw) return;
+  L.raw = raw;
+  const o = parse(raw, null);
+  if (!o || typeof o.g !== "string") return;
+  let g; try { g = unpackGrid(o.g); } catch { return; }
+  L.g = g; L.redraw = true;
+  Object.assign(L, { v: +o.v || 0, d: +o.d || 0, s: o.s === "r" ? "r" : "o", p: +o.p || 0, f: +o.f || 0, r: +o.r || 0, fb: +o.fb || 0, c: o.c && typeof o.c === "object" ? { ...o.c } : {} });
+}
+/** Host: write a yard's field. Its `v` only goes up, even over a field another host wrote. */
+function writeLawn(i) {
+  const L = lawn[i], cur = parse(S.shared["y" + i], null);
+  L.v = Math.max(L.v, (cur && +cur.v) || 0) + 1;
+  const raw = JSON.stringify({ v: L.v, d: L.d, s: L.s, p: L.p, f: L.f, r: L.r, fb: L.fb, c: L.c, g: packGrid(L.g) });
+  net.setShared("y" + i, raw); L.raw = raw; L.dirty = false; L.lastW = performance.now();
+}
+
+// ── SCENE ───────────────────────────────────────────────────────────────────────────
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color("#cdebf5");
+scene.fog = new THREE.Fog("#cdebf5", 75, 180);
+const camera = new THREE.PerspectiveCamera(38, 1, 1, 500);
+function fit() { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+addEventListener("resize", fit); addEventListener("orientationchange", fit); fit();
+scene.add(new THREE.HemisphereLight("#ffffff", "#6f8f55", 1.35));
+const sun = new THREE.DirectionalLight("#fff3da", 2.0);
+sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
+Object.assign(sun.shadow.camera, { left: -34, right: 34, top: 34, bottom: -34, near: 1, far: 160 });
+scene.add(sun, sun.target);
+const SUN_OFF = new THREE.Vector3(-24, 52, 28);
+function canvasTex(w, h, paint, rx, ry) {
+  const c = document.createElement("canvas"); c.width = w; c.height = h; paint(c.getContext("2d"), w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  if (rx) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); }
+  return t;
+}
+const mat = (color, more) => new THREE.MeshStandardMaterial({ color, roughness: 0.85, ...more });
+const add = (geo, m, x, y, z, shadow = true, parent = scene) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = shadow; o.receiveShadow = true; parent.add(o); return o; };
+const M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), SC = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0), EU = new THREE.Euler();
+const seeded = mulberry32(42);
+// The diorama: a wooden board with short grass on top.
+add(new THREE.BoxGeometry(104, 5, 72), mat("#a8744a"), 0, -2.56, 0, false);
+add(new THREE.BoxGeometry(105, 0.6, 73), mat("#8a5a36"), 0, -4.8, 0, false);
+const vergeTex = canvasTex(64, 64, (c, w, h) => { c.fillStyle = "#86c463"; c.fillRect(0, 0, w, h); for (let i = 0; i < 260; i++) { c.fillStyle = Math.random() < 0.5 ? "#7cb95a" : "#92cf6e"; c.fillRect(Math.random() * w, Math.random() * h, 2, 4); } }, 52, 36);
+add(new THREE.PlaneGeometry(104, 72).rotateX(-Math.PI / 2), mat("#ffffff", { map: vergeTex }), 0, -0.04, 0, false);
+// Road, curbs, sidewalks, the dashed line, driveways.
+const asphalt = canvasTex(64, 64, (c, w, h) => { c.fillStyle = "#5d636f"; c.fillRect(0, 0, w, h); for (let i = 0; i < 240; i++) { c.fillStyle = `rgba(255,255,255,${Math.random() * 0.07})`; c.fillRect(Math.random() * w, Math.random() * h, 2, 2); } }, 24, 2);
+add(new THREE.PlaneGeometry(EDGE_X * 2 + 6, ROAD * 2).rotateX(-Math.PI / 2), mat("#ffffff", { map: asphalt, roughness: 0.95 }), 0, 0, 0, false);
+for (const s of [1, -1]) {
+  add(new THREE.PlaneGeometry(EDGE_X * 2 + 6, WALK - ROAD).rotateX(-Math.PI / 2), mat("#dcd7ca"), 0, 0.012, s * (ROAD + WALK) / 2, false);
+  add(new THREE.BoxGeometry(EDGE_X * 2 + 6, 0.16, 0.22), mat("#bdb6a6"), 0, 0.08, s * ROAD, false);
+}
+const dashes = new THREE.InstancedMesh(new THREE.BoxGeometry(2, 0.03, 0.22), new THREE.MeshBasicMaterial({ color: "#f6e7a8" }), 22);
+for (let k = 0; k < 22; k++) dashes.setMatrixAt(k, M4.makeTranslation(-46 + k * 4.4, 0.015, 0));
+scene.add(dashes);
+for (const cx of LOT_X) for (const s of [1, -1]) add(new THREE.PlaneGeometry(3, BACK + 1 - WALK).rotateX(-Math.PI / 2), mat("#cfc9bb"), cx + 9.8, 0.01, s * (WALK + BACK + 1) / 2, false);
+// Houses: one behind each yard, a garage at the end of the driveway. Pastel walls, gable roofs.
+const WALLS = ["#f6e7c1", "#cfe3f0", "#f4c9c3", "#dfe8c8", "#f3d9a4", "#e3d4f0", "#fbe3d0", "#d4ece6"], ROOFS = ["#c8553d", "#4f6d7a", "#8d6a9f", "#2f4858", "#b5651d", "#5a7d3a", "#9c3d54", "#46627f"];
+const facade = (wall, trim, door) => canvasTex(512, 144, (c, w, h) => {
+  c.fillStyle = wall; c.fillRect(0, 0, w, h); c.fillStyle = "#00000014"; c.fillRect(0, h - 12, w, 12);
+  for (const x of [40, 140, 330, 430]) { c.fillStyle = trim; c.fillRect(x - 6, 30, 64, 58); c.fillStyle = "#9fd3f0"; c.fillRect(x, 36, 52, 46); c.fillStyle = "#ffffff88"; c.fillRect(x, 36, 14, 46); c.fillStyle = trim; c.fillRect(x + 24, 36, 4, 46); }
+  if (door) { c.fillStyle = trim; c.fillRect(226, 34, 60, 110); c.fillStyle = door; c.fillRect(232, 40, 48, 104); c.fillStyle = "#ffe066"; c.beginPath(); c.arc(270, 96, 4, 0, 7); c.fill(); }
+});
+const garageTex = canvasTex(128, 96, (c, w, h) => { c.fillStyle = "#f2f2f2"; c.fillRect(0, 0, w, h); for (let y = 16; y < h; y += 16) { c.fillStyle = "#d8d8d8"; c.fillRect(10, y, w - 20, 3); } c.strokeStyle = "#bbb"; c.lineWidth = 6; c.strokeRect(8, 8, w - 16, h); });
+Y.forEach((yd, k) => {
+  const z = yd.side * (BACK + 1.2 + 3.25), hx = yd.cx + 1.5, front = facade(WALLS[k], "#ffffff", ROOFS[(k + 3) % ROOFS.length]), back = facade(WALLS[k], "#ffffff", "");
+  const wall = mat(WALLS[k]), m = [wall, wall, wall, wall, yd.side > 0 ? mat("#fff", { map: back }) : mat("#fff", { map: front }), yd.side > 0 ? mat("#fff", { map: front }) : mat("#fff", { map: back })];
+  add(new THREE.BoxGeometry(13, 3.6, 6.5), m, hx - 1.7, 1.8, z);
+  const roofShape = new THREE.Shape([new THREE.Vector2(-3.7, 0), new THREE.Vector2(3.7, 0), new THREE.Vector2(0, 2.3)]);
+  const roof = new THREE.ExtrudeGeometry(roofShape, { depth: 13.6, bevelEnabled: false }).rotateY(Math.PI / 2).translate(-6.8, 0, 0);
+  add(roof, mat(ROOFS[k], { flatShading: true }), hx - 1.7, 3.6, z);
+  add(new THREE.BoxGeometry(0.8, 1.8, 0.8), mat("#9a6b55"), hx - 5, 5, z + 1.2);
+  add(new THREE.BoxGeometry(3.6, 2.7, 5.2), mat(WALLS[k]), yd.cx + 9.8, 1.35, yd.side * (BACK + 0.6 + 2.6));
+  add(new THREE.BoxGeometry(3.9, 0.25, 5.5), mat(ROOFS[k]), yd.cx + 9.8, 2.8, yd.side * (BACK + 0.6 + 2.6));
+  const gd = add(new THREE.PlaneGeometry(3, 2.3), mat("#ffffff", { map: garageTex }), yd.cx + 9.8, 1.16, yd.side * (BACK + 0.58), false);
+  gd.rotation.y = yd.side > 0 ? Math.PI : 0;
+  // mailbox at the corner of the yard
+  add(new THREE.CylinderGeometry(0.06, 0.06, 1), mat("#6b4a33"), yd.x0 + YW + 0.15, 0.5, yd.side * 5.4);
+  add(new THREE.BoxGeometry(0.32, 0.3, 0.55), mat(ROOFS[k]), yd.x0 + YW + 0.15, 1.05, yd.side * 5.4);
+  // the yard's edging: a thin brown border
+  const edge = mat("#b58b5e");
+  for (const [w, d, u, ww] of [[YW + 0.24, 0.12, YW / 2, -0.06], [YW + 0.24, 0.12, YW / 2, YD + 0.06], [0.12, YD, -0.06, YD / 2], [0.12, YD, YW + 0.06, YD / 2]]) add(new THREE.BoxGeometry(w, 0.1, d), edge, wx(yd, u), 0.05, wz(yd, ww), false);
+});
+// Hedges and trees.
+const hedgeMat = mat("#3f8f45", { roughness: 1 });
+for (const hx of HEDGE_X) for (const s of [1, -1]) add(new THREE.BoxGeometry(1, 1, BACK + 0.6 - HEDGE_Z), hedgeMat, hx, 0.5, s * (HEDGE_Z + BACK + 0.6) / 2);
+const trees = STREET_TREES.map(([x, z]) => [x, z, 0.8]);
+for (let k = 0; k < 90; k++) { const x = -50 + seeded() * 100, z = (seeded() < 0.5 ? 1 : -1) * (BACK + 9 + seeded() * 9); trees.push([x, z, 0.9 + seeded() * 0.7]); }
+for (let k = 0; k < 24; k++) { const x = (seeded() < 0.5 ? 1 : -1) * (46.5 + seeded() * 4.5), z = -33 + seeded() * 66; if (Math.abs(z) > 4.5) trees.push([x, z, 0.9 + seeded() * 0.6]); }
+const crowns = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1.7, 0), mat("#4caf50", { flatShading: true }), trees.length);
+const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.22, 0.32, 1.8, 6), mat("#7a5230"), trees.length);
+trees.forEach(([x, z, s], k) => { crowns.setMatrixAt(k, M4.compose(V.set(x, 2.5 * s + 0.2, z), Q.identity(), SC.set(s, s * 1.15, s))); crowns.setColorAt(k, new THREE.Color(["#4caf50", "#5cbf60", "#3e9e4a", "#7cc35a"][k % 4])); trunks.setMatrixAt(k, M4.compose(V.set(x, 0.9 * s, z), Q.identity(), SC.set(s, s, s))); });
+crowns.castShadow = trunks.castShadow = true; scene.add(crowns, trunks);
+// The crew truck (dump your bag in its bed) and the compost bins.
+const truck = new THREE.Group(); scene.add(truck);
+const teal = mat("#2a9d8f", { roughness: 0.5 }), tyre = mat("#22252b");
+const crewTex = canvasTex(256, 64, (c, w, h) => { c.fillStyle = "#2a9d8f"; c.fillRect(0, 0, w, h); c.fillStyle = "#fff"; c.font = "900 34px system-ui, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("MOW CREW", w / 2, h / 2 + 2); });
+add(new THREE.BoxGeometry(1.5, 1.4, 2.1), teal, 1.6, 1.15, 0, true, truck);
+add(new THREE.BoxGeometry(1.3, 0.55, 1.9), mat("#26324a", { roughness: 0.2 }), 1.75, 1.55, 0, false, truck);
+add(new THREE.BoxGeometry(3.4, 0.35, 2.1), teal, -0.85, 0.6, 0, true, truck);
+for (const s of [1, -1]) { add(new THREE.BoxGeometry(3.4, 0.6, 0.1), teal, -0.85, 1.05, s * 1.0, true, truck); const lbl = add(new THREE.PlaneGeometry(2.4, 0.6), mat("#fff", { map: crewTex }), -0.85, 1.05, s * 1.06, false, truck); lbl.rotation.y = s > 0 ? 0 : Math.PI; }
+add(new THREE.BoxGeometry(0.1, 0.6, 2.1), teal, -2.5, 1.05, 0, true, truck);
+for (const [x, z] of [[1.5, 1.05], [1.5, -1.05], [-1.6, 1.05], [-1.6, -1.05]]) add(new THREE.CylinderGeometry(0.42, 0.42, 0.3, 14).rotateX(Math.PI / 2), tyre, x, 0.42, z, true, truck);
+const heap = add(new THREE.SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat("#6cae3e", { roughness: 1 }), -0.85, 0.78, 0, false, truck);
+heap.scale.set(1.4, 0.25, 0.8);
+let heapLevel = 0; // grows when anyone empties a bag into the truck (just for looks)
+const binLabel = canvasTex(128, 64, (c, w, h) => { c.fillStyle = "#2f7d4f"; c.fillRect(0, 0, w, h); c.fillStyle = "#fff"; c.font = "900 22px system-ui, sans-serif"; c.textAlign = "center"; c.fillText("COMPOST", w / 2, 40); });
+for (const d of DUMPS) if (!d.truck) {
+  add(new THREE.BoxGeometry(1.1, 1.1, 1.1), mat("#2f7d4f"), d.x, 0.55, d.z);
+  add(new THREE.BoxGeometry(1.2, 0.14, 1.2), mat("#25603d"), d.x, 1.15, d.z);
+  const l = add(new THREE.PlaneGeometry(1, 0.5), mat("#fff", { map: binLabel }), d.x, 0.6, d.z + 0.56, false); l.position.z = d.z + 0.56;
+}
+
+// ── LAWNS ───────────────────────────────────────────────────────────────────────────
+// Each yard is a flat plane with a 1-texel-per-cell stripe texture (smoothed, plus a fine
+// grass detail), and one instanced grass tuft per cell of long grass that waves in the wind.
+const LONG = [66, 122, 42], LIGHT = [168, 222, 104], DARK = [92, 156, 58], SOIL = [107, 74, 51];
+const wind = { value: 0 };
+const detailTex = canvasTex(128, 128, (c, w, h) => { c.fillStyle = "#c8c8c8"; c.fillRect(0, 0, w, h); for (let i = 0; i < 900; i++) { const v = 150 + Math.floor(Math.random() * 105); c.fillStyle = `rgb(${v},${v},${v})`; c.fillRect(Math.random() * w, Math.random() * h, 1.5, 5); } }, 1, 1);
+function lawnMat(tex) {
+  const m = new THREE.MeshLambertMaterial({ map: tex });
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.uDetail = { value: detailTex };
+    sh.fragmentShader = "uniform sampler2D uDetail;\n" + sh.fragmentShader.replace("#include <map_fragment>", `#include <map_fragment>
+      diffuseColor.rgb *= 0.8 + 0.4 * texture2D(uDetail, vMapUv * vec2(${(YW / 1.6).toFixed(1)}, ${(YD / 1.6).toFixed(1)})).r;`);
+  };
+  return m;
+}
+/** One tuft of long grass: six thin blades, dark at the root and light at the tip. */
+function tuftGeo() {
+  const pos = [], col = [], nor = [], bot = new THREE.Color("#3a7227"), top = new THREE.Color("#a6d968"), rng = mulberry32(5);
+  for (let k = 0; k < 6; k++) {
+    const a = (k / 6) * Math.PI * 2 + rng() * 0.7, r = 0.03 + rng() * 0.1, cx = Math.cos(a) * r, cz = Math.sin(a) * r, h = 0.42 + rng() * 0.3, lean = 0.06 + rng() * 0.12, pa = a + Math.PI / 2, bw = 0.055;
+    pos.push(cx - Math.cos(pa) * bw, 0, cz - Math.sin(pa) * bw, cx + Math.cos(pa) * bw, 0, cz + Math.sin(pa) * bw, cx + Math.cos(a) * lean, h, cz + Math.sin(a) * lean);
+    col.push(...bot.toArray(), ...bot.toArray(), ...top.toArray()); nor.push(0, 1, 0, 0, 1, 0, 0, 1, 0);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3)); g.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
+  return g;
+}
+const TUFT = tuftGeo(), tuftMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
+tuftMat.onBeforeCompile = (sh) => { // wind: tufts lean with gusts that roll across the street, and catch the light as they bend
+  sh.uniforms.uTime = wind;
+  sh.vertexShader = "uniform float uTime;\n" + sh.vertexShader.replace("#include <color_vertex>", `#include <color_vertex>
+      vec3 tuftAt = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
+      float gust = 0.5 + 0.5 * sin(dot(tuftAt.xz, vec2(0.21, 0.29)) - uTime * 1.6);
+      vColor.rgb *= 0.86 + 0.34 * gust * clamp(position.y * 1.8, 0.0, 1.0);`)
+    .replace("#include <project_vertex>", `vec4 mvPosition = instanceMatrix * vec4(transformed, 1.0);
+      float bend = position.y * position.y * (0.35 + 0.9 * gust) * length(instanceMatrix[1].xyz);
+      mvPosition.x += bend * (0.42 + 0.14 * sin(uTime * 2.6 + tuftAt.z * 1.3));
+      mvPosition.z -= bend * (0.2 + 0.12 * sin(uTime * 2.1 + tuftAt.x * 1.7));
+      mvPosition = modelViewMatrix * mvPosition;
+      gl_Position = projectionMatrix * mvPosition;`);
+};
+const tuftTint = [new THREE.Color("#ffffff"), new THREE.Color("#e8f5d0"), new THREE.Color("#d8ecc0"), new THREE.Color("#f2ffd8")];
+for (const yd of Y) {
+  yd.data = new Uint8Array(CELLS * 4);
+  yd.tex = new THREE.DataTexture(yd.data, COLS, ROWS); yd.tex.colorSpace = THREE.SRGBColorSpace; yd.tex.magFilter = yd.tex.minFilter = THREE.LinearFilter; yd.tex.needsUpdate = true;
+  for (let c = 0; c < CELLS; c++) if (yd.kind[c] !== GRASS) paintCell(yd, c, -1);
+  const plane = add(new THREE.PlaneGeometry(YW, YD).rotateX(-Math.PI / 2), lawnMat(yd.tex), yd.cx, 0.02, wz(yd, YD / 2), false);
+  plane.receiveShadow = true;
+  const rng = mulberry32(300 + yd.i);
+  yd.tufts = new THREE.InstancedMesh(TUFT, tuftMat, yd.grassN);
+  yd.inst = new Int16Array(CELLS).fill(-1); yd.tuftAt = [];
+  yd.grass.forEach((c, n) => {
+    yd.inst[c] = n;
+    yd.tuftAt.push({ x: wx(yd, ((c % COLS) + 0.2 + rng() * 0.6) * CELL), z: wz(yd, (Math.floor(c / COLS) + 0.2 + rng() * 0.6) * CELL), a: rng() * 6.28, s: 1 + rng() * 0.45 });
+    setTuft(yd, c, 1); yd.tufts.setColorAt(n, tuftTint[n % 4]);
+  });
+  yd.tufts.computeBoundingSphere(); yd.tufts.receiveShadow = true; scene.add(yd.tufts);
+}
+function paintCell(yd, c, v) {
+  const row = Math.floor(c / COLS), ty = yd.side > 0 ? ROWS - 1 - row : row, k = (ty * COLS + (c % COLS)) * 4;
+  const base = v < 0 ? SOIL : v === 0 ? LONG : v === 1 ? LIGHT : DARK, n = yd.noise[c];
+  yd.data[k] = Math.min(255, base[0] * n); yd.data[k + 1] = Math.min(255, base[1] * n); yd.data[k + 2] = Math.min(255, base[2] * n); yd.data[k + 3] = 255;
+}
+/** Size a cell's tuft: 0 = mown, 1 = fully grown. */
+function setTuft(yd, c, k) {
+  const n = yd.inst[c], t = yd.tuftAt[n];
+  if (k <= 0.001) M4.makeScale(0, 0, 0).setPosition(t.x, -1, t.z);
+  else M4.compose(V.set(t.x, 0.02, t.z), Q.setFromAxisAngle(UP, t.a), SC.setScalar(t.s * k));
+  yd.tufts.setMatrixAt(n, M4);
+}
+const easeOutBack = (p) => 1 + 2.4 * (p - 1) ** 3 + 1.4 * (p - 1) ** 2;
+/** Redraw a yard's changed cells: the host's grid with my pending cuts on top. */
+function drawLawn(yd, L, now) {
+  L.redraw = false;
+  let tex = false, inst = false;
+  for (const c of yd.grass) {
+    const p = L.pend.get(c), v = p ? p.s : L.g[c], was = L.shown[c];
+    if (v === was) continue;
+    L.shown[c] = v; paintCell(yd, c, v); tex = true;
+    if (v) { setTuft(yd, c, 0); L.growing.delete(c); inst = true; }
+    else if (was === 255) { setTuft(yd, c, 1); inst = true; }
+    else L.growing.set(c, now); // grass grows back: it springs up
+  }
+  if (tex) yd.tex.needsUpdate = true;
+  if (inst) yd.tufts.instanceMatrix.needsUpdate = true;
+}
+function growTufts(yd, L, now) {
+  if (!L.growing.size) return;
+  for (const [c, t0] of L.growing) { const k = clamp((now - t0) / 1300, 0, 1); setTuft(yd, c, easeOutBack(k)); if (k >= 1) L.growing.delete(c); }
+  yd.tufts.instanceMatrix.needsUpdate = true;
+}
+// Flower beds: dark soil with an edging and a crowd of flowers. Mown flowers lie flat.
+const soilMat = mat("#6b4a33", { roughness: 1 }), brick = mat("#c98f6a");
+const FLOWERS = ["#ff4d6d", "#ffd23f", "#ffffff", "#c77dff", "#ff8fab", "#ff9f1c", "#5bc0eb"];
+const flowerSpots = [];
+for (const yd of Y) yd.beds.forEach((bd, b) => {
+  const rng = mulberry32(50 + yd.i * 9 + b);
+  if (bd.kind === "strip") {
+    add(new THREE.BoxGeometry(bd.u1 - bd.u0 + 0.2, 0.12, YD - bd.w0 + 0.1), brick, wx(yd, (bd.u0 + bd.u1) / 2), 0.05, wz(yd, (bd.w0 + YD) / 2), false);
+    add(new THREE.BoxGeometry(bd.u1 - bd.u0, 0.16, YD - bd.w0 - 0.1), soilMat, wx(yd, (bd.u0 + bd.u1) / 2), 0.07, wz(yd, (bd.w0 + YD) / 2), false);
+  } else {
+    const start = bd.u === 0 ? (yd.side > 0 ? 0 : Math.PI / 2) : yd.side > 0 ? Math.PI * 1.5 : Math.PI;
+    add(new THREE.CylinderGeometry(bd.r + 0.1, bd.r + 0.1, 0.12, 20, 1, false, start, Math.PI / 2), brick, wx(yd, bd.u), 0.05, wz(yd, 0), false);
+    add(new THREE.CylinderGeometry(bd.r - 0.05, bd.r - 0.05, 0.16, 20, 1, false, start, Math.PI / 2), soilMat, wx(yd, bd.u), 0.07, wz(yd, 0), false);
+  }
+  const n = bd.kind === "strip" ? Math.round((bd.u1 - bd.u0) * 6) : 22;
+  for (let t = 0, made = 0; made < n && t < n * 6; t++) {
+    const u = bd.kind === "strip" ? bd.u0 + 0.25 + rng() * (bd.u1 - bd.u0 - 0.5) : bd.u + (bd.u ? -1 : 1) * rng() * bd.r, w = bd.kind === "strip" ? bd.w0 + 0.25 + rng() * (YD - bd.w0 - 0.5) : rng() * bd.r;
+    if (bd.kind !== "strip" && Math.hypot(u - bd.u, w) > bd.r - 0.3) continue;
+    flowerSpots.push({ y: yd.i, b, x: wx(yd, u), z: wz(yd, w), s: 0.8 + rng() * 0.5, a: rng() * 6.28, c: FLOWERS[Math.floor(rng() * FLOWERS.length)] }); made++;
+  }
+});
+const stems = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.025, 0.03, 0.42, 5).translate(0, 0.21, 0), mat("#3f8f3a"), flowerSpots.length);
+const heads = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.13, 0), mat("#ffffff", { flatShading: true, roughness: 0.6 }), flowerSpots.length);
+scene.add(stems, heads);
+const flat = new Map(); // yard -> bitmask of beds drawn flattened
+function setFlowers(y, mask) {
+  flowerSpots.forEach((f, k) => {
+    if (f.y !== y) return;
+    const down = mask & (1 << f.b);
+    EU.set(down ? 1.35 : 0, f.a, 0); Q.setFromEuler(EU);
+    stems.setMatrixAt(k, M4.compose(V.set(f.x, 0.12, f.z), Q, SC.set(f.s, down ? f.s * 0.6 : f.s, f.s)));
+    heads.setMatrixAt(k, M4.compose(V.set(f.x + (down ? Math.sin(f.a) * 0.3 : 0), down ? 0.2 : 0.12 + 0.42 * f.s, f.z + (down ? Math.cos(f.a) * 0.3 : 0)), Q, SC.setScalar(down ? f.s * 0.6 : f.s)));
+    heads.setColorAt(k, new THREE.Color(down ? "#8a7a5a" : f.c));
+  });
+  stems.instanceMatrix.needsUpdate = heads.instanceMatrix.needsUpdate = true; heads.instanceColor.needsUpdate = true;
+  flat.set(y, mask);
+}
+for (const yd of Y) setFlowers(yd.i, 0);
+// Garden gnomes, sprinklers and doghouses.
+const gnomes = [];
+for (const yd of Y) yd.solidsL.forEach((s, n) => {
+  if (!s.gnome) return;
+  const g = new THREE.Group(); g.position.set(wx(yd, s.u), 0, wz(yd, s.w)); g.rotation.y = yd.side > 0 ? Math.PI : 0; scene.add(g);
+  add(new THREE.CylinderGeometry(0.2, 0.26, 0.42, 10), mat("#3a6fd8"), 0, 0.21, 0, true, g);
+  add(new THREE.SphereGeometry(0.16, 12, 8), mat("#f3c9a2"), 0, 0.55, 0.02, true, g);
+  add(new THREE.ConeGeometry(0.16, 0.3, 10), mat("#ffffff"), 0, 0.45, 0.1, false, g).rotation.x = Math.PI + 0.35;
+  add(new THREE.ConeGeometry(0.19, 0.5, 10), mat("#e23d3d"), 0, 0.88, 0, true, g);
+  gnomes.push({ y: yd.i, n, g, wob: 0 });
+});
+const sprinklers = Y.filter((yd) => yd.spr).map((yd) => {
+  const x = wx(yd, yd.spr.u), z = wz(yd, yd.spr.w);
+  add(new THREE.CylinderGeometry(0.12, 0.16, 0.22, 10), mat("#8a8f9c", { metalness: 0.4 }), x, 0.11, z);
+  const wet = add(new THREE.CircleGeometry(2.8, 28).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: "#3d8fd8", transparent: true, opacity: 0, depthWrite: false }), x, 0.035, z, false);
+  return { yd, x, z, wet, a: 0 };
+});
+for (const yd of Y) if (yd.dog) {
+  const s = yd.solidsL.find((o) => o.house), x = wx(yd, s.u), z = wz(yd, s.w), red = mat("#c0392b");
+  add(new THREE.BoxGeometry(1.3, 1.0, 1.3), red, x, 0.5, z);
+  const roof = new THREE.ExtrudeGeometry(new THREE.Shape([new THREE.Vector2(-0.85, 0), new THREE.Vector2(0.85, 0), new THREE.Vector2(0, 0.7)]), { depth: 1.5, bevelEnabled: false }).translate(0, 0, -0.75);
+  add(roof, mat("#5b3a29", { flatShading: true }), x, 1.0, z);
+  add(new THREE.PlaneGeometry(0.55, 0.6), new THREE.MeshBasicMaterial({ color: "#2a1a12" }), x, 0.35, z - yd.side * 0.66, false).rotation.y = yd.side > 0 ? Math.PI : 0;
+}
+// A job sign floating over each yard: the price and how much is cut, or "MOWED".
+for (const yd of Y) {
+  yd.signC = document.createElement("canvas"); yd.signC.width = 256; yd.signC.height = 144;
+  yd.signT = new THREE.CanvasTexture(yd.signC); yd.signT.colorSpace = THREE.SRGBColorSpace;
+  yd.sign = new THREE.Sprite(new THREE.SpriteMaterial({ map: yd.signT, depthTest: false, transparent: true }));
+  yd.sign.scale.set(3.4, 1.9, 1); yd.sign.position.set(yd.cx, 2.6, wz(yd, 1.1)); yd.sign.renderOrder = 5; scene.add(yd.sign);
+  yd.signKey = "";
+}
+function rrect(c, x, y, w, h, r) { c.beginPath(); c.roundRect(x, y, w, h, r); }
+function updateSign(yd, L) {
+  const t = Date.now(), pct = Math.floor(L.ds.pct * 100);
+  const key = L.s === "o" ? (L.f ? `t${Math.max(0, Math.ceil((L.f - t) / 1000))}:${pct}` : `o${L.p}:${Math.floor(pct / 2)}`) : t < L.r ? "done" : "grow";
+  if (key === yd.signKey) return;
+  yd.signKey = key;
+  const c = yd.signC.getContext("2d"), W = 256, H = 144, tidy = L.s === "o" && L.f;
+  c.clearRect(0, 0, W, H);
+  c.globalAlpha = key === "grow" ? 0.55 : 1;
+  c.fillStyle = "#5b3a29"; c.fillRect(W / 2 - 5, 100, 10, 44);
+  c.fillStyle = L.s !== "o" ? "#2e9e54" : tidy ? "#ffd23f" : "#ffffff"; rrect(c, 8, 6, W - 16, 100, 18); c.fill();
+  c.lineWidth = 6; c.strokeStyle = L.s !== "o" ? "#1f6e3a" : tidy ? "#c98a00" : "#3a7d44"; c.stroke();
+  c.textAlign = "center"; c.textBaseline = "middle";
+  if (L.s !== "o") { c.fillStyle = "#fff"; c.font = "900 38px system-ui, sans-serif"; c.fillText(key === "grow" ? "growing…" : "✓ MOWED", W / 2, 50); c.font = "700 20px system-ui, sans-serif"; c.fillText(`No. ${yd.num}`, W / 2, 86); }
+  else {
+    c.fillStyle = "#3a5a2a"; c.font = "700 18px system-ui, sans-serif"; c.fillText(tidy ? `FINISH IT! ${Math.max(0, Math.ceil((L.f - t) / 1000))}s` : `No. ${yd.num} · MOW ME`, W / 2, 26);
+    c.fillStyle = "#1f5e2c"; c.font = "900 44px system-ui, sans-serif"; c.fillText(`$${L.p}`, W / 2, 60);
+    c.fillStyle = "#00000022"; rrect(c, 28, 84, W - 56, 12, 6); c.fill();
+    c.fillStyle = tidy ? "#e07a00" : "#4caf50"; rrect(c, 28, 84, (W - 56) * clamp(L.ds.pct, 0, 1), 12, 6); c.fill();
+  }
+  c.globalAlpha = 1;
+  yd.signT.needsUpdate = true;
+}
+
+// ── MODELS ──────────────────────────────────────────────────────────────────────────
+const grey = mat("#5d636e", { roughness: 0.6 }), seatMat = mat("#2a2d33"), skin = mat("#f2c9a0"), shirt = mat("#f4f1e8");
+const BAG_EMPTY = new THREE.Color("#d8cba0"), BAG_FULL = new THREE.Color("#79b846");
+const tagTex = (name) => canvasTex(256, 64, (c) => { c.font = "bold 34px system-ui, sans-serif"; c.textAlign = "center"; c.lineWidth = 6; c.strokeStyle = "#000a"; c.strokeText(name, 128, 44); c.fillStyle = "#fff"; c.fillText(name, 128, 44); });
+/** A little riding mower with its driver. The bag at the back swells as it fills. */
+function makeMower(color, name) {
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  const paint = mat(color, { roughness: 0.45 }), bagMat = mat("#d8cba0", { roughness: 1 });
+  const deck = add(new THREE.CylinderGeometry(0.66, 0.7, 0.16, 22), grey, 0, 0.2, 0.05, true, body);
+  add(new THREE.BoxGeometry(0.95, 0.32, 1.45), paint, 0, 0.48, -0.05, true, body);
+  add(new THREE.BoxGeometry(0.85, 0.34, 0.62), paint, 0, 0.62, 0.52, true, body);
+  add(new THREE.BoxGeometry(0.7, 0.12, 0.06), mat("#1d1f24"), 0, 0.6, 0.84, false, body);
+  add(new THREE.BoxGeometry(0.62, 0.12, 0.5), seatMat, 0, 0.72, -0.35, true, body);
+  add(new THREE.BoxGeometry(0.62, 0.42, 0.1), seatMat, 0, 0.92, -0.62, true, body);
+  add(new THREE.CylinderGeometry(0.03, 0.03, 0.55), grey, 0, 0.95, 0.24, false, body).rotation.x = -0.5;
+  add(new THREE.TorusGeometry(0.17, 0.035, 6, 16), seatMat, 0, 1.2, 0.12, false, body).rotation.x = -1.1;
+  add(new THREE.BoxGeometry(0.44, 0.46, 0.3), shirt, 0, 1.02, -0.32, true, body);
+  for (const s of [1, -1]) add(new THREE.BoxGeometry(0.1, 0.1, 0.42), shirt, s * 0.2, 1.1, -0.1, false, body).rotation.x = 0.3;
+  add(new THREE.SphereGeometry(0.2, 14, 10), skin, 0, 1.42, -0.3, true, body);
+  add(new THREE.SphereGeometry(0.21, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), paint, 0, 1.47, -0.3, false, body);
+  add(new THREE.BoxGeometry(0.3, 0.04, 0.2), paint, 0, 1.49, -0.1, false, body);
+  const wheels = [];
+  for (const s of [1, -1]) { wheels.push(add(new THREE.CylinderGeometry(0.34, 0.34, 0.24, 14).rotateZ(Math.PI / 2), tyre, s * 0.6, 0.34, -0.42, true, g)); wheels.push(add(new THREE.CylinderGeometry(0.21, 0.21, 0.16, 12).rotateZ(Math.PI / 2), tyre, s * 0.45, 0.21, 0.56, true, g)); }
+  const bag = new THREE.Group(); bag.position.set(0, 0.45, -0.85); body.add(bag);
+  add(new THREE.BoxGeometry(0.78, 0.6, 0.5).translate(0, 0.3, -0.25), bagMat, 0, 0, 0, true, bag);
+  const shadow = new THREE.Mesh(new THREE.CircleGeometry(1.05, 18).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: "#000", transparent: true, opacity: 0.18, depthWrite: false })); shadow.position.y = 0.04; g.add(shadow);
+  if (name) { const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: tagTex(name), depthTest: false })); tag.scale.set(4.4, 1.1, 1); tag.position.y = 2.5; g.add(tag); }
+  scene.add(g);
+  return { g, body, deck, bag, bagMat, wheels, spin: 0, color };
+}
+/** Pose a mower: position, heading, wheels, a buzz while it cuts, its bag, its deck size. */
+function poseMower(m, x, z, h, v, dt, fill, r, cutting, stunned, t) {
+  m.g.position.set(x, 0, z); m.g.rotation.y = h; m.spin += (v * dt) / 0.3;
+  for (const w of m.wheels) w.rotation.x = m.spin;
+  m.body.position.y = cutting ? Math.sin(t * 60) * 0.012 : 0;
+  m.body.rotation.z = stunned ? Math.sin(t * 22) * 0.12 : 0;
+  m.deck.scale.set(r / 0.68, 1, r / 0.68); // the deck mesh is about 0.68 across the middle
+  const f = clamp(fill, 0, 1);
+  m.bag.scale.set(0.8 + f * 0.35, 0.55 + f * 0.75, 0.7 + f * 0.6);
+  m.bagMat.color.copy(BAG_EMPTY).lerp(BAG_FULL, f);
+  m.bagMat.emissive.set(f >= 1 && Math.sin(t * 12) > 0 ? "#a01a00" : "#000000");
+}
+/** A dog: sleeps by its doghouse, runs after mowers that come too close. */
+function makeDog() {
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body); scene.add(g);
+  const fur = mat("#c98b4f"), dark = mat("#6b4226");
+  add(new THREE.BoxGeometry(0.42, 0.34, 0.85), fur, 0, 0.42, 0, true, body);
+  const head = new THREE.Group(); head.position.set(0, 0.62, 0.48); body.add(head);
+  add(new THREE.BoxGeometry(0.36, 0.34, 0.36), fur, 0, 0.06, 0, true, head);
+  add(new THREE.BoxGeometry(0.2, 0.15, 0.2), mat("#e0b07a"), 0, -0.02, 0.24, false, head);
+  add(new THREE.BoxGeometry(0.08, 0.07, 0.05), mat("#1d1d1d"), 0, 0.03, 0.35, false, head);
+  for (const s of [1, -1]) add(new THREE.BoxGeometry(0.08, 0.22, 0.12), dark, s * 0.16, 0.18, -0.04, false, head);
+  add(new THREE.BoxGeometry(0.44, 0.08, 0.1), mat("#e23d3d"), 0, 0.5, 0.32, false, body);
+  const tail = add(new THREE.BoxGeometry(0.07, 0.07, 0.36), dark, 0, 0.58, -0.5, false, body); tail.rotation.x = -0.7;
+  const legs = [[0.13, 0.28], [-0.13, 0.28], [0.13, -0.28], [-0.13, -0.28]].map(([x, z]) => add(new THREE.BoxGeometry(0.1, 0.3, 0.1).translate(0, -0.15, 0), dark, x, 0.3, z, true, body));
+  const zzz = new THREE.Sprite(new THREE.SpriteMaterial({ map: canvasTex(128, 64, (c) => { c.font = "900 40px system-ui, sans-serif"; c.textAlign = "center"; c.fillStyle = "#fff"; c.strokeStyle = "#0008"; c.lineWidth = 5; c.strokeText("z z z", 64, 44); c.fillText("z z z", 64, 44); }), depthTest: false, transparent: true }));
+  zzz.scale.set(1.3, 0.65, 1); zzz.position.set(0.2, 1.3, 0); g.add(zzz);
+  return { g, body, head, tail, legs, zzz };
+}
+function poseDog(d, x, z, h, s, t) {
+  d.g.position.set(x, 0, z); d.g.rotation.y = h;
+  const asleep = s === "sleep", run = s === "chase" || s === "back";
+  d.body.position.y = asleep ? -0.2 : run ? Math.abs(Math.sin(t * 16)) * 0.08 : 0;
+  d.head.rotation.x = asleep ? 0.5 : 0;
+  d.legs.forEach((l, k) => { l.visible = !asleep; l.rotation.x = run ? Math.sin(t * 16 + (k % 2) * Math.PI) * 0.7 : 0; });
+  d.tail.rotation.y = s === "happy" || run ? Math.sin(t * 25) * 0.7 : 0;
+  d.zzz.visible = asleep; d.zzz.position.y = 1.2 + Math.sin(t * 2) * 0.1;
+  if (s === "happy") d.body.rotation.y = t * 9; else d.body.rotation.y = 0;
+}
+// The arrow over my mower: to the nearest bin when the bag is full, else to a job.
+const arrowShape = new THREE.Shape([new THREE.Vector2(0, 1.4), new THREE.Vector2(0.85, 0.2), new THREE.Vector2(0.32, 0.2), new THREE.Vector2(0.32, -0.9), new THREE.Vector2(-0.32, -0.9), new THREE.Vector2(-0.32, 0.2), new THREE.Vector2(-0.85, 0.2)]);
+const arrow = new THREE.Mesh(new THREE.ExtrudeGeometry(arrowShape, { depth: 0.22, bevelEnabled: false }).rotateX(Math.PI / 2).scale(0.6, 0.6, 0.6), new THREE.MeshBasicMaterial({ color: "#ffe066" }));
+arrow.visible = false; scene.add(arrow);
+// Particles: grass clippings, petals, water, coins, dust. One instanced mesh of flakes.
+const PMAX = 1000, parts = [];
+const partMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.07, 0.025, 0.16), new THREE.MeshBasicMaterial({ color: "#ffffff" }), PMAX);
+partMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(PMAX * 3), 3); partMesh.frustumCulled = false; partMesh.count = 0; scene.add(partMesh);
+const colorCache = new Map(), col = (hex) => { if (!colorCache.has(hex)) colorCache.set(hex, new THREE.Color(hex)); return colorCache.get(hex); };
+function spark(x, y, z, vx, vy, vz, color, life, grav = 9, size = 1) { if (parts.length < PMAX) parts.push({ x, y, z, vx, vy, vz, c: col(color), life, max: life, grav, size, r: rnd(0, 6) }); }
+const CLIP = ["#7fc34f", "#a6d86a", "#5e9e3a", "#c4e88a"];
+/** Clippings fly out of the side chute of a mower that is cutting long grass. */
+function clipFx(x, z, h, v, n) {
+  if (Math.hypot(x - camLook.x, z - camLook.z) > 40) return;
+  const rx = -Math.cos(h), rz = Math.sin(h);
+  for (let k = 0; k < Math.min(6, Math.ceil(n / 2)); k++) spark(x + rx * 0.7, 0.35, z + rz * 0.7, rx * rnd(2, 4.5) + Math.sin(h) * v * 0.3 + rnd(-0.6, 0.6), rnd(1.5, 3.4), rz * rnd(2, 4.5) + Math.cos(h) * v * 0.3 + rnd(-0.6, 0.6), pick(CLIP), rnd(0.5, 0.95), 9, 1.6);
+}
+const pops = [];
+function popText(text, x, y, z, color = "#ffe066", scale = 1) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: canvasTex(320, 96, (c) => { c.font = "900 60px system-ui, sans-serif"; c.textAlign = "center"; c.lineWidth = 10; c.strokeStyle = "#1d2b16"; c.strokeText(text, 160, 68); c.fillStyle = color; c.fillText(text, 160, 68); }), depthTest: false, transparent: true }));
+  s.scale.set(6.4 * scale, 1.9 * scale, 1); s.position.set(x, y, z); s.renderOrder = 6; scene.add(s); pops.push({ s, life: 1.9 });
+}
+function effectsTick(dt) {
+  let i = 0;
+  for (let n = parts.length - 1; n >= 0; n--) {
+    const p = parts[n]; p.life -= dt; if (p.life <= 0) { parts.splice(n, 1); continue; }
+    p.vy -= p.grav * dt; p.vx *= 1 - 1.5 * dt; p.vz *= 1 - 1.5 * dt; p.x += p.vx * dt; p.y = Math.max(0.05, p.y + p.vy * dt); p.z += p.vz * dt; p.r += dt * 10;
+    EU.set(p.r, p.r * 0.7, 0); Q.setFromEuler(EU);
+    partMesh.setMatrixAt(i, M4.compose(V.set(p.x, p.y, p.z), Q, SC.setScalar(p.size * Math.min(1, (p.life / p.max) * 3)))); partMesh.setColorAt(i++, p.c);
+  }
+  partMesh.count = i; partMesh.instanceMatrix.needsUpdate = true; if (i) partMesh.instanceColor.needsUpdate = true;
+  for (let n = pops.length - 1; n >= 0; n--) { const p = pops[n]; p.life -= dt; p.s.position.y += dt * 1.6; p.s.material.opacity = Math.min(1, p.life * 1.4); if (p.life <= 0) { scene.remove(p.s); p.s.material.map.dispose(); pops.splice(n, 1); } }
+}
+
+// ── DAY (HOST) ──────────────────────────────────────────────────────────────────────
+// The day: { id, v, ph: "on" | "end", ends, sc: { id: [cash, yards, perfects, name, color] }, res: [[name, cash, yards, color, id, perfects]] }
+const host = { was: false, last: null, bots: new Map(), dogs: [], trails: new Map(), lastBots: 0, lastYW: 0, statsAt: 0 };
+const hosting = () => isHost() && host.was;
+function day() { const r = shared("day", null); return host.last && hosting() && (!r || host.last.v > r.v) ? host.last : r; }
+function writeDay(d) { d = { ...d, v: Math.max(day()?.v ?? 0, shared("day", null)?.v ?? 0) + 1 }; host.last = d; net.setShared("day", JSON.stringify(d)); return d; }
+const priceFor = (i, cells) => Math.max(5, Math.round(cells * CONFIG.pricePerCell * Y[i].fancy * liveCfg("payBonus")));
+/** Every mower on the street: { id, name, color, x, z, h, v, r, mow, bot, mine }. Bots come from the host. */
+function crews() {
+  const out = [], live = new Set(livePlayers());
+  for (const [id, p] of Object.entries(S.entities.players || {})) {
+    if (id === net.sessionId) { out.push({ id, name: myName, color: myColor, x: me.x, z: me.z, h: me.h, v: me.v, r: me.r, mow: me.mowing, mine: true }); continue; }
+    if (!live.has(id)) continue;
+    const k = parseOnce("k:" + id, p.k, null);
+    if (k && typeof k.x === "number") out.push({ id, name: String(p.n ?? "Mower").slice(0, 16), color: p.c || "#ccc", x: k.x, z: k.z, h: k.h || 0, v: k.v || 0, r: (k.w || 65) / 100, mow: !!k.m, bag: (k.b || 0) / 100 });
+  }
+  for (const b of botList()) out.push({ id: b.i, name: b.n, color: b.c, x: b.x, z: b.z, h: b.h, v: b.v, r: (b.r || 65) / 100, mow: !!b.m, bag: (b.b || 0) / 100, bot: true });
+  return out;
+}
+function addScore(sc, id, cash, yards = 0, perfects = 0) {
+  const c = crews().find((x) => x.id === id), was = sc[id] || [0, 0, 0, "Mower", "#ccc"];
+  sc[id] = [was[0] + cash, was[1] + yards, was[2] + perfects, c ? String(c.name).slice(0, 16) : was[3], c ? c.color : was[4]];
+}
+/** Become host: take every yard, the bots and the dogs exactly as state has them. */
+function adopt() {
+  host.was = true; host.last = null; host.trails.clear(); host.lastYW = 0;
+  lawn.forEach((L, i) => { L.raw = null; readLawn(i); Object.assign(L, { dirty: false, lastW: 0, acc: 0, hs: null }); });
+  host.bots.clear();
+  const list = shared("bots", []);
+  for (const b of list) if (b && !b.d && typeof b.x === "number") host.bots.set(b.i, newBot(b.i, { name: b.n, color: b.c, x: b.x, z: b.z, h: b.h || 0, v: b.v || 0, bag: ((b.b || 0) / 100) * CONFIG.bag, stun: b.st ? Date.now() + 500 : 0 }));
+  host.dogs = CONFIG.dogYards.map((y, k) => {
+    const s = list.find((o) => o && o.d && o.i === "dog" + k), home = Y[y].dog;
+    return { i: "dog" + k, home, x: s ? s.x : home.x, z: s ? s.z : home.z, h: s ? s.h : home.h, s: s ? s.s : "sleep", tg: (s && s.tg) || "", un: (s && +s.un) || 0, ok: (s && +s.ok) || 0 };
+  });
+}
+/** A new day: three lawns grew shaggy overnight, the rest grew back in clumps over last week's stripes (smaller, quicker jobs). */
+function startDay(id) {
+  const rng = mulberry32(id * 7919), share = [1, 1, 1, 0.85, 0.75, 0.7, 0.6, 0.55];
+  for (let k = share.length - 1; k > 0; k--) { const j = Math.floor(rng() * (k + 1)); [share[k], share[j]] = [share[j], share[k]]; }
+  lawn.forEach((L, i) => {
+    const yd = Y[i], g = new Uint8Array(CELLS);
+    if (!ATTRACT && share[i] < 1) {
+      yd.rows.forEach((_, k) => paintRow(yd, g, k, k % 2 ? 2 : 1));
+      let grow = Math.round(share[i] * yd.grassN) - yd.grass.filter((c) => !g[c]).length;
+      for (const c of yd.order) { if (grow <= 0) break; if (g[c]) { g[c] = 0; grow--; } }
+    }
+    L.g = g; Object.assign(L, { d: id, s: "o", p: priceFor(i, yd.grass.filter((c) => !g[c]).length), f: 0, r: 0, fb: 0, c: {}, acc: 0, redraw: true });
+  });
+  for (const b of host.bots.values()) Object.assign(b, { bag: 0, mode: "pick", yard: -1, stun: 0 });
+  if (ATTRACT) attractPrefill();
+  lawn.forEach((L, i) => writeLawn(i));
+  return writeDay({ id, ph: "on", ends: Date.now() + CONFIG.dayMs, sc: {}, res: [] });
+}
+function endDay(d) {
+  const res = Object.entries(d.sc).map(([id, s]) => [s[3], s[0], s[1], s[4], id, s[2]]);
+  for (const c of crews()) if (!d.sc[c.id] && !(ATTRACT && c.mine)) res.push([String(c.name).slice(0, 16), 0, 0, c.color, c.id, 0]);
+  res.sort((a, b) => b[1] - a[1]);
+  return writeDay({ ...d, ph: "end", ends: Date.now() + CONFIG.resultsMs, res: res.slice(0, 12) });
+}
+/** Host: cut along a mower's path into the real grids. Credits fresh cells to `id`; spots beds. Returns fresh cells. */
+function hostCut(id, ax, az, bx, bz, r, h) {
+  const dx = bx - ax, dz = bz - az, s = dx * dx + dz * dz > 1e-6 ? stripeOf(dx, dz) : stripeOf(Math.sin(h), Math.cos(h)); // parked: the blades still cut under the deck
+  let fresh = 0;
+  for (const yd of yardsAlong(ax, az, bx, bz, r)) {
+    const L = lawn[yd.i]; let changed = false, n = 0;
+    forCells(yd, ax, az, bx, bz, r, (c) => { if (yd.kind[c] !== GRASS || L.g[c] === s) return; if (!L.g[c]) n++; L.g[c] = s; changed = true; });
+    if (n && L.s === "o") L.c[id] = (L.c[id] || 0) + n;
+    fresh += n;
+    if (changed) { L.dirty = true; L.redraw = true; }
+    forCells(yd, ax, az, bx, bz, r * BED_REACH, (c) => { const b = yd.bedOf[c]; if (b && !(L.fb & (1 << (b - 1)))) { L.fb |= 1 << (b - 1); L.dirty = true; flowersHit(yd.i, b - 1, id, bx, bz); } });
+  }
+  return fresh;
+}
+function flowersHit(y, b, id, x, z) {
+  const d = day(); if (!d) return;
+  const sc = { ...d.sc }; addScore(sc, id, -CONFIG.flowerFine); writeDay({ ...d, sc });
+  const fx = { y, b, by: id, x: +x.toFixed(1), z: +z.toFixed(1) }; net.send("petals", fx); petalFx(fx);
+}
+/** Host: redraw everyone else's path from their snapshots: a straight line from the last one to this one. */
+function hostTrails(d) {
+  const live = new Set(livePlayers());
+  for (const [id, p] of Object.entries(S.entities.players || {})) {
+    if (id === net.sessionId || !live.has(id) || typeof p.k !== "string") continue;
+    const rec = host.trails.get(id);
+    if (rec && rec.raw === p.k) continue;
+    const k = parse(p.k, null); if (!k || typeof k.x !== "number") continue;
+    if (rec && rec.m && k.m && d.ph === "on" && Math.hypot(k.x - rec.x, k.z - rec.z) < 5) hostCut(id, rec.x, rec.z, k.x, k.z, clamp((k.w || 65) / 100, 0.4, 1.2), k.h || 0);
+    host.trails.set(id, { raw: p.k, x: k.x, z: k.z, m: k.m });
+  }
+}
+/** Host: finish and pay yards, let resting yards grow back, reopen them as new jobs. */
+function yardsTick(t, dt) {
+  const now = performance.now(), stats = now - host.statsAt > 200;
+  if (stats) host.statsAt = now;
+  lawn.forEach((L, i) => {
+    const yd = Y[i];
+    if (L.s === "o") {
+      if (!stats) return;
+      const st = (L.hs = yardStats(yd, L.g));
+      if (st.pct >= CONFIG.doneAt && !L.f) { L.f = t + CONFIG.tidyMs; L.dirty = true; }
+      if (L.f && (st.cut >= yd.grassN || t >= L.f)) pay(i, st);
+    } else if (t >= L.r) {
+      L.acc += CONFIG.regrowPerSec * dt;
+      let n = Math.floor(L.acc); L.acc -= n;
+      if (n > 0) { for (const c of yd.order) if (L.g[c]) { L.g[c] = 0; if (--n <= 0) break; } L.dirty = true; L.redraw = true; }
+      if (stats) { const st = (L.hs = yardStats(yd, L.g)); if (1 - st.pct >= CONFIG.reopenAt) { Object.assign(L, { s: "o", p: priceFor(i, yd.grassN - st.cut), c: {}, f: 0, fb: 0 }); L.dirty = true; } }
+    }
+  });
+}
+/** Pay a finished yard: the price (plus PERFECT) split by how many cells each mower cut. */
+function pay(i, st) {
+  const L = lawn[i], d = day(), perfect = !L.fb && (st.cut >= Y[i].grassN * 0.995 || st.neat >= CONFIG.neatPerfect);
+  const total = Math.round(L.p * (perfect ? 1 + CONFIG.perfectBonus : 1)), cuts = Object.entries(L.c).filter(([, n]) => n > 0), sum = cuts.reduce((a, [, n]) => a + n, 0);
+  const sc = { ...d.sc }, splits = [];
+  for (const [id, n] of cuts) { const amt = Math.round((total * n) / sum), big = n / sum >= 0.2; splits.push([id, amt]); addScore(sc, id, amt, big ? 1 : 0, big && perfect ? 1 : 0); }
+  writeDay({ ...d, sc });
+  Object.assign(L, { s: "r", r: Date.now() + CONFIG.restMs, f: 0, c: {}, acc: 0 }); L.dirty = true;
+  const fx = { y: i, s: splits, pf: perfect ? 1 : 0, nt: Math.round(st.neat * 100), tot: total }; net.send("paid", fx); paidFx(fx);
+}
+/** Write dirty yards: one field at a time, each at most ~4 times a second. */
+function publishLawns(now) {
+  if (now - host.lastYW < 70) return;
+  let best = -1;
+  lawn.forEach((L, i) => { if (L.dirty && now - L.lastW > 260 && (best < 0 || L.lastW < lawn[best].lastW)) best = i; });
+  if (best >= 0) { host.lastYW = now; writeLawn(best); }
+}
+function hostTick(dt, now) {
+  if (!host.was) adopt();
+  fitBots();
+  const t = Date.now();
+  let d = day();
+  if (!d) d = startDay(1);
+  if (d.ph === "on" && t >= d.ends) d = endDay(d);
+  if (d.ph === "end" && t >= d.ends) d = startDay(d.id + 1);
+  hostTrails(d);
+  if (d.ph === "on") yardsTick(t, dt);
+  const all = crews();
+  for (const b of host.bots.values()) botTick(b, dt, d, all);
+  dogsTick(dt, d, all);
+  publishLawns(now);
+  if (now - host.lastBots > 100) {
+    host.lastBots = now;
+    const r1 = (v) => Math.round(v * 100) / 100;
+    net.setShared("bots", JSON.stringify([...botList().map((b) => ({ ...b, x: r1(b.x), z: r1(b.z), h: r1(b.h), v: r1(b.v) })), ...dogList().map((g) => ({ ...g, x: r1(g.x), z: r1(g.z), h: r1(g.h) }))]));
+  }
+}
+
+// ── BOTS (HOST) ─────────────────────────────────────────────────────────────────────
+// A bot crew picks an open yard nobody else is on, mows it in rows (a little wobbly, now
+// and then skipping one), then goes back for the patches it missed. A full bag means a
+// trip to the nearest bin or the truck. Bots drive out to the street to change lots.
+function botList() {
+  if (hosting()) return [...host.bots.values()].map((b) => ({ i: b.id, n: b.name, c: b.color, x: b.x, z: b.z, h: b.h, v: b.v, m: b.mowing ? 1 : 0, b: Math.round((b.bag / b.cap) * 100), r: 65, st: Date.now() < b.stun ? 1 : 0 }));
+  return shared("bots", []).filter((b) => b && !b.d && typeof b.x === "number");
+}
+function dogList() {
+  if (hosting()) return host.dogs.map((g) => ({ i: g.i, d: 1, x: g.x, z: g.z, h: g.h, s: g.s, tg: g.tg, un: g.un, ok: g.ok }));
+  return shared("bots", []).filter((b) => b && b.d && typeof b.x === "number");
+}
+const SPAWNS = [[-5, LANE], [5, -LANE], [5, LANE], [-5, -LANE], [-8.5, LANE], [8.5, -LANE], [8.5, LANE], [-8.5, -LANE], [-12, LANE], [12, -LANE]];
+function newBot(id, from) {
+  const used = new Set(crews().map((c) => c.color)), names = new Set([...host.bots.values()].map((b) => b.name)), s = SPAWNS[(host.bots.size + 3) % SPAWNS.length];
+  return { id, name: BOT_NAMES.find((n) => !names.has(n)) || "Crew", color: COLORS.find((c) => !used.has(c)) || pick(COLORS), x: s[0], z: s[1], h: s[0] < 0 ? -Math.PI / 2 : Math.PI / 2, v: 0,
+    bag: 0, cap: CONFIG.bag, r: CONFIG.deck, top: CONFIG.botSpeed * rnd(0.92, 1.05), stun: 0, mowing: false, mode: "pick", yard: -1, order: [], ri: 0, phase: 0, dir: 1,
+    patch: null, dump: null, thinkAt: 0, avoid: -1, avoidUntil: 0, wob: rnd(0, 6.28), skill: rnd(0.78, 0.95), ...from };
+}
+/** Bots fill the street up to CONFIG.seats; one leaves when a person joins. A bot never wears a person's color. */
+function fitBots() {
+  const humans = livePlayers().filter((id) => !(ATTRACT && id === net.sessionId)).length, want = Math.max(0, CONFIG.seats - humans - (ATTRACT ? 1 : 0));
+  while (host.bots.size > want) host.bots.delete([...host.bots.keys()].pop());
+  while (host.bots.size < want) { const id = "b" + Math.random().toString(36).slice(2, 6); host.bots.set(id, newBot(id)); }
+  const people = new Set(crews().filter((c) => !c.bot).map((c) => c.color));
+  for (const b of host.bots.values()) if (people.has(b.color)) { const used = new Set(crews().map((c) => c.color)); b.color = COLORS.find((c) => !used.has(c)) || b.color; }
+}
+function botTick(b, dt, d, all) {
+  const t = Date.now(), px = b.x, pz = b.z, on = d.ph === "on";
+  const [tx, tz, mag] = on && t > b.stun ? botBrain(b, t, dt) : [b.x, b.z, 0];
+  const wet = wetAt(b.x, b.z);
+  steer(b, tx - b.x, tz - b.z, mag, dt, b.top * (wet ? CONFIG.wetSlow : 1));
+  if (t < b.stun) b.v = 0;
+  const v0 = b.v, bump = collide(b);
+  if (bump && v0 > 1.5) bonk(bump, b);
+  separate(b, all);
+  b.mowing = on && b.bag < b.cap && t > b.stun;
+  if (b.mowing) { const n = hostCut(b.id, px, pz, b.x, b.z, b.r, b.h); if (n) { b.bag = Math.min(b.cap, b.bag + n * (wet ? 2 : 1)); clipFx(b.x, b.z, b.h, b.v, n); } }
+}
+/** Where a bot (or ?attract's autopilot) wants to go: [x, z, throttle 0..1]. Stuck for a moment? Back off and try again. */
+function botBrain(b, t, dt) {
+  if (b.nudge && t < b.nudge.until) return b.nudge.to;
+  const out = think(b, t);
+  b.stuckT = out[2] > 0.3 && b.v < 0.5 ? (b.stuckT || 0) + dt : 0;
+  if (b.stuckT > 1.6) { b.stuckT = 0; const a = b.h + Math.PI + rnd(-1, 1); b.nudge = { until: t + 900, to: [b.x + Math.sin(a) * 3, b.z + Math.cos(a) * 3, 1] }; }
+  return out;
+}
+function think(b, t) {
+  if (b.bag >= b.cap * 0.97 && b.mode !== "dump") { b.mode = "dump"; b.dump = nearestDump(b.x, b.z); }
+  if (b.mode === "dump") {
+    const p = b.dump;
+    if (Math.hypot(p.x - b.x, p.z - b.z) < p.r - 0.4) { emptyBag(b, p); b.mode = b.yard >= 0 && lawn[b.yard].s === "o" ? "mow" : "pick"; b.phase = 0; }
+    else return via(b, p.x, p.z, 1);
+  }
+  if (b.mode !== "pick" && (b.yard < 0 || lawn[b.yard].s !== "o")) b.mode = "pick";
+  if (b.mode === "pick") {
+    if (t < b.thinkAt) return [b.x, b.z, 0];
+    b.thinkAt = t + rnd(400, 900);
+    b.yard = chooseYard(b, t);
+    if (b.yard < 0) { if (b.bag > b.cap * 0.3) { b.mode = "dump"; b.dump = nearestDump(b.x, b.z); } return [b.x, b.z, 0]; }
+    startRows(b);
+  }
+  const yd = Y[b.yard];
+  if (b.mode === "mow") {
+    let row = yd.rows[b.order[b.ri]];
+    if (row && b.phase === 0 && rowDone(yd, row)) { b.ri++; row = nextRow(b, yd); }
+    if (!row) { b.mode = "patch"; b.patch = null; b.thinkAt = 0; }
+    else {
+      const u = lu(yd, b.x);
+      if (b.phase === 0) { // get onto the row's line, then along it to its near end (rows never touch beds, so neither does this)
+        b.dir = u - row.a < row.b - u ? 1 : -1;
+        const sx = wx(yd, b.dir > 0 ? row.a : row.b), sz = wz(yd, row.w);
+        const go = (x) => { const off = Math.abs(wrap(Math.atan2(x - b.x, sz - b.z) - b.h)); return [x, sz, off > 1.3 ? 0.2 : clamp(0.5 + Math.hypot(x - b.x, sz - b.z) / 2, 0, 1)]; }; // turn almost on the spot, ease in
+        if (Math.hypot(sx - b.x, sz - b.z) < 0.6) b.phase = 1;
+        else if (yardAt(b.x, b.z) !== yd) { // come in from the street where the way is clear (corner beds, gnomes)
+          const ok = [clamp(u, Math.max(row.a, 3.2), Math.min(row.b, YW - 3.2)), YW / 2, row.a + 1, row.b - 1].find((eu) => eu >= row.a && eu <= row.b && clearPath(yd, wx(yd, eu), wz(yd, -0.3), wx(yd, eu), sz, b.r));
+          if (ok === undefined) { b.ri++; nextRow(b, yd); return [b.x, b.z, 0]; }
+          return via(b, wx(yd, ok), sz, 1);
+        } else if (Math.abs(lw(yd, b.z) - row.w) > 0.35) { // step onto the row's line, if nothing is in the way (else the patch pass gets it)
+          const x = wx(yd, clamp(u, row.a, row.b));
+          if (!clearPath(yd, b.x, b.z, x, sz, b.r)) { b.ri++; nextRow(b, yd); return [b.x, b.z, 0]; }
+          return go(x);
+        } else return go(sx);
+      }
+      const end = b.dir > 0 ? row.b : row.a, left = (end - u) * b.dir;
+      if (left < 0.3) { b.ri++; nextRow(b, yd); return [b.x + Math.sin(b.h), b.z + Math.cos(b.h), 0.3]; }
+      const wob = Math.sin(t / 900 + b.wob) * 0.2 * (1.25 - b.skill);
+      return [wx(yd, clamp(u + b.dir * 2.2, row.a, row.b)), wz(yd, row.w + wob), clamp(0.5 + left / 2, 0, 1)]; // ease off near the end of the row
+    }
+  }
+  if (b.mode === "patch") { // the bits the rows missed
+    const L = lawn[b.yard];
+    if (!b.patch || L.g[b.patch.c] || t > b.thinkAt) { b.thinkAt = t + 700; b.patch = nearestPatch(b, yd); }
+    if (!b.patch) { b.avoid = b.yard; b.avoidUntil = t + 15000; b.mode = "pick"; return [b.x, b.z, 0]; }
+    if (b.patch.street && yardAt(b.x, b.z) === yd) return [b.x, Math.sign(b.z) * LANE, 1];
+    const dist = Math.hypot(b.patch.x - b.x, b.patch.z - b.z);
+    if (dist < 0.2) { (b.skip = b.skip || new Set()).add(b.patch.c); b.patch = null; return [b.x, b.z, 0]; } // parked on it and it's still long: leave that one
+    return via(b, b.patch.x, b.patch.z, clamp(0.35 + dist / 2, 0, 1));
+  }
+  return [b.x, b.z, 0];
+}
+/** The best open yard for a bot: lots of long grass, close by, nobody else on it. */
+function chooseYard(b, t) {
+  const all = crews();
+  let best = -1, bs = -Infinity;
+  lawn.forEach((L, i) => {
+    if (L.s !== "o") return;
+    const yd = Y[i], left = yd.grassN - (L.hs || yardStats(yd, L.g)).cut;
+    if (left < 25) return;
+    const busy = all.filter((c) => c.id !== b.id && (c.bot ? host.bots.get(c.id)?.yard === i : c.mine && ATTRACT ? me.yard === i : yardAt(c.x, c.z) === yd)).length;
+    const s = left * 0.6 - Math.hypot(yd.cx - b.x, wz(yd, YD / 2) - b.z) * 6 - busy * 380 + (i === b.yard ? 150 : 0) - (i === b.avoid && t < b.avoidUntil ? 900 : 0) + rnd(0, 60);
+    if (s > bs) { bs = s; best = i; }
+  });
+  return best;
+}
+function startRows(b) {
+  const yd = Y[b.yard], fromFront = lw(yd, b.z) < YD / 2;
+  b.order = yd.rows.map((_, k) => k); if (!fromFront) b.order.reverse();
+  b.ri = 0; b.mode = "mow"; b.patch = null; b.skip = null;
+  nextRow(b, yd);
+}
+/** Skip rows already mown (by anyone); now and then a bot skips one by mistake. */
+function nextRow(b, yd) {
+  for (; b.ri < b.order.length; b.ri++) {
+    const row = yd.rows[b.order[b.ri]];
+    if (!rowDone(yd, row) && !(Math.random() < (1 - b.skill) * 0.25)) { b.phase = 0; return row; }
+  }
+  return null;
+}
+function rowDone(yd, row) {
+  const L = lawn[yd.i], c0 = Math.max(0, Math.floor(row.a / CELL)), c1 = Math.min(COLS - 1, Math.floor(row.b / CELL)), mid = Math.floor(row.w / CELL);
+  let n = 0, cut = 0;
+  for (let r = Math.max(0, mid - 1); r <= Math.min(ROWS - 1, mid + 1); r++) for (let k = c0; k <= c1; k++) { const c = r * COLS + k; if (yd.kind[c] !== GRASS) continue; n++; if (L.g[c]) cut++; }
+  return !n || cut / n > 0.92;
+}
+/** The closest long grass the bot can reach in a straight line without touching a bed or a gnome. */
+function nearestPatch(b, yd) {
+  const L = lawn[yd.i], spots = [];
+  for (const c of yd.grass) {
+    const o = yd.cover[c]; if (L.g[c] || o < 0 || (b.skip && b.skip.has(c))) continue;
+    const x = wx(yd, ((o % COLS) + 0.5) * CELL), z = wz(yd, (Math.floor(o / COLS) + 0.5) * CELL);
+    spots.push({ c, x, z, d: (x - b.x) ** 2 + (z - b.z) ** 2 });
+  }
+  spots.sort((p, q) => p.d - q.d);
+  const fromFront = (p) => clearPath(yd, p.x, wz(yd, -0.3), p.x, p.z, b.r); // straight in from the sidewalk
+  if (yardAt(b.x, b.z) !== yd) return spots.find(fromFront) || null;
+  const direct = spots.find((p) => clearPath(yd, b.x, b.z, p.x, p.z, b.r));
+  if (direct) return direct;
+  const round = spots.find(fromFront); // blocked from here (a bed or a gnome between): out to the street and back in
+  return round ? { ...round, street: true } : null;
+}
+const lotOf = (x) => LOT_X.reduce((best, cx, k) => (Math.abs(x - cx - 1.5) < Math.abs(x - LOT_X[best] - 1.5) ? k : best), 0);
+/** Go to (tx, tz), but by way of the street when that means changing lots (hedges are in the way). */
+function via(b, tx, tz, mag) {
+  const inYard = Math.abs(b.z) > WALK, toYard = Math.abs(tz) > WALK;
+  const sameLot = inYard && toYard && Math.sign(b.z) === Math.sign(tz) && lotOf(b.x) === lotOf(tx);
+  if (inYard && !sameLot) return [b.x, Math.sign(b.z) * LANE, 1];
+  if (!inYard && toYard) {
+    const lane = Math.sign(tz) * LANE;
+    if (Math.abs(b.z - lane) > 0.8 && Math.abs(b.x - tx) > 1.2) return Math.abs(b.x) < 3.8 ? [b.x < 0 ? -4.6 : 4.6, b.z, 1] : [b.x, lane, 1]; // cross the road, not through the truck
+    if (Math.abs(b.x - tx) > 1.2) return [tx, lane, 1];
+  }
+  return [tx, tz, Math.hypot(tx - b.x, tz - b.z) < 0.15 ? 0 : mag];
+}
+/** Empty a bag at a bin or the truck (anyone's: bots, my autopilot, me). */
+function emptyBag(m, p) {
+  if (m.bag <= 0) return;
+  dumpFx({ x: m.x, z: m.z, tx: p.x, tz: p.z, n: Math.round(m.bag), truck: p.truck ? 1 : 0 });
+  net.send("dump", { x: +m.x.toFixed(1), z: +m.z.toFixed(1), tx: p.x, tz: p.z, n: Math.round(m.bag), truck: p.truck ? 1 : 0 });
+  m.bag = 0;
+}
+/** The dogs: asleep until a moving mower comes close, then a chase, a happy wiggle if it catches you, and back to bed. */
+function dogsTick(dt, d, all) {
+  const t = Date.now();
+  for (const g of host.dogs) {
+    if (g.s === "sleep") {
+      if (d.ph !== "on" || t < g.ok) continue;
+      const c = all.find((c) => c.v > 0.5 && Math.hypot(c.x - g.x, c.z - g.z) < CONFIG.dogWake);
+      if (c) { Object.assign(g, { s: "chase", tg: c.id, un: t + CONFIG.dogChaseMs }); const fx = { x: +g.x.toFixed(1), z: +g.z.toFixed(1) }; net.send("woof", fx); woofFx(fx); }
+    } else if (g.s === "chase") {
+      const c = all.find((o) => o.id === g.tg), dist = c ? Math.hypot(c.x - g.x, c.z - g.z) : 99;
+      if (!c || t > g.un || dist > 16 || d.ph !== "on") { g.s = "back"; continue; }
+      dogStep(g, c.x, c.z, CONFIG.dogSpeed, dt);
+      if (dist < 1.0) { dogCaught(c); Object.assign(g, { s: "happy", un: t + 1400 }); }
+    } else if (g.s === "happy") { if (t > g.un) g.s = "back"; }
+    else if (dogStep(g, g.home.x, g.home.z, 2.6, dt) < 0.25) Object.assign(g, { s: "sleep", h: g.home.h, ok: t + CONFIG.dogNapMs });
+  }
+}
+function dogStep(g, tx, tz, speed, dt) {
+  const dx = tx - g.x, dz = tz - g.z, dist = Math.hypot(dx, dz);
+  if (dist > 0.05) { const want = Math.atan2(dx, dz); g.h = wrap(g.h + clamp(wrap(want - g.h), -7 * dt, 7 * dt)); const step = Math.min(dist, speed * dt * Math.max(0.3, Math.cos(wrap(want - g.h)))); g.x += Math.sin(g.h) * step; g.z += Math.cos(g.h) * step; }
+  g.x = clamp(g.x, -EDGE_X, EDGE_X); g.z = clamp(g.z, -BACK, BACK);
+  return dist;
+}
+function dogCaught(c) {
+  const d = day(), sc = { ...d.sc };
+  addScore(sc, c.id, -CONFIG.dogFine); writeDay({ ...d, sc });
+  if (c.bot) { const b = host.bots.get(c.id); if (b) b.stun = Date.now() + CONFIG.dogStunMs; }
+  const fx = { to: c.id, x: +c.x.toFixed(1), z: +c.z.toFixed(1) }; net.send("bit", fx); bitFx(fx);
+}
+/** Neat stripes along one of a yard's rows: last week's mowing, or ?attract's head start. */
+function paintRow(yd, g, k, stripe) {
+  const R = yd.rows[k];
+  for (const c of yd.grass) { const u = ((c % COLS) + 0.5) * CELL, w = (Math.floor(c / COLS) + 0.5) * CELL; if (Math.abs(w - R.w) <= CONFIG.deck * 0.86 && u >= R.a - CONFIG.deck && u <= R.b + CONFIG.deck && !g[c]) g[c] = stripe; }
+}
+/** ?attract: the street is already half mown in stripes and every crew is mid-yard, so the preview is busy at once. */
+function attractPrefill() {
+  const plan = [[6, 0.52, me], [5, 0.62], [7, 0.55], [4, 0.4], [1, 0.7], [2, 0.45]], bots = [...host.bots.values()];
+  plan.forEach(([i, frac, who], k) => {
+    const m = who || bots[k - 1], yd = Y[i], L = lawn[i], order = yd.rows.map((_, n) => n);
+    if (who === me) order.reverse(); // mine is mown from the back, so I finish it near the street (the preview's camera)
+    let row = 0;
+    for (; row < yd.rows.length && yardStats(yd, L.g).pct < frac; row++) paintRow(yd, L.g, order[row], row % 2 ? 2 : 1);
+    if (!m) return;
+    L.c[m === me ? net.sessionId : m.id] = yardStats(yd, L.g).cut;
+    const R = yd.rows[order[Math.min(row, yd.rows.length - 1)]], dir = row % 2 ? -1 : 1;
+    Object.assign(m, { yard: i, mode: "mow", order, ri: row, phase: 1, dir, x: wx(yd, dir > 0 ? R.a + 1.5 : R.b - 1.5), z: wz(yd, R.w), h: dir > 0 ? Math.PI / 2 : -Math.PI / 2, v: 2, bag: CONFIG.bag * (0.2 + k * 0.1) });
+  });
+}
+
+// ── MY MOWER ────────────────────────────────────────────────────────────────────────
+const myName = (() => { try { return localStorage.getItem("mpa-name") || ""; } catch { return ""; } })() || pick(["Tidy", "Sunny", "Breezy", "Lucky", "Speedy", "Happy"]) + " " + pick(["Mower", "Clipper", "Trimmer", "Cutter"]);
+let myColor = COLORS[0];
+const me = { id: "", x: -5, z: LANE, h: -Math.PI / 2, v: 0, bag: 0, r: CONFIG.deck, top: CONFIG.speed, cap: CONFIG.bag, stun: 0, mowing: false, dayId: 0, banked: 0, lastSend: 0, sent: "", hitBeds: new Map(), fullAt: 0,
+  mode: "pick", yard: -1, order: [], ri: 0, phase: 0, dir: 1, patch: null, dump: null, thinkAt: 0, avoid: -1, avoidUntil: 0, wob: 1, skill: 0.93 }; // mode…skill: ?attract's autopilot drives me like a bot
+function applyUpgrades() { const lv = save.lv; me.r = CONFIG.deck + lv.deck * CONFIG.upgrades.deck; me.top = CONFIG.speed + lv.speed * CONFIG.upgrades.speed; me.cap = Math.round(CONFIG.bag * (1 + lv.bag * CONFIG.upgrades.bag)); }
+function spawnMe() {
+  const others = crews().filter((c) => !c.mine), s = SPAWNS.find(([x, z]) => others.every((c) => Math.hypot(c.x - x, c.z - z) > 2.5)) || SPAWNS[0]; // a free spot by the truck
+  Object.assign(me, { x: s[0], z: s[1], h: s[0] < 0 ? -Math.PI / 2 : Math.PI / 2, v: 0 });
+}
+/** A new day (or I just arrived): back to the truck with an empty bag. */
+function newDayForMe(d) {
+  me.dayId = d.id; me.bag = 0; me.stun = 0; me.hitBeds.clear(); overFor = -1;
+  if (!ATTRACT) spawnMe();
+  for (const L of lawn) { L.pend.clear(); L.redraw = true; }
+}
+function myTick(dt, now, d) {
+  if (!d) return;
+  if (d.id !== me.dayId) newDayForMe(d);
+  const t = Date.now(), px = me.x, pz = me.z, on = d.ph === "on", stunned = t < me.stun;
+  let ix = 0, iz = 0, mag = 0;
+  if (ATTRACT) { if (on && !stunned) { const [tx, tz, m] = botBrain(me, t, dt); ix = tx - me.x; iz = tz - me.z; mag = m; } }
+  else if (!stunned) ({ ix, iz, mag } = readInput());
+  const wet = wetAt(me.x, me.z);
+  steer(me, ix, iz, mag, dt, me.top * (wet ? CONFIG.wetSlow : 1));
+  if (stunned) me.v = 0;
+  const v0 = me.v, bump = collide(me);
+  if (bump && v0 > 1.6) bonk(bump, me);
+  separate(me, crews());
+  me.mowing = on && me.bag < me.cap && !stunned;
+  if (me.mowing) {
+    const n = hosting() ? hostCut(net.sessionId, px, pz, me.x, me.z, me.r, me.h) : paintPending(px, pz, me.x, me.z, me.r, now, me.h);
+    if (n) { me.bag = Math.min(me.cap, me.bag + n * (wet ? 2 : 1)); clipFx(me.x, me.z, me.h, me.v, n); me.cutAt = now; }
+    if (!hosting()) myBeds(px, pz);
+  }
+  const dp = nearestDump(me.x, me.z);
+  if (me.bag > 0 && Math.hypot(dp.x - me.x, dp.z - me.z) < dp.r) { emptyBag(me, dp); if (!ATTRACT) sfx(220, 0.25, "sawtooth", 0.03, 90); }
+  if (me.bag >= me.cap && !me.fullAt) { me.fullAt = now; if (!ATTRACT) sfx(160, 0.3, "square", 0.04, 120); } // the status line and the arrow say where to go
+  if (me.bag < me.cap) me.fullAt = 0;
+  publish(now);
+}
+/** Mark cells cut on this screen right away (until the host's grid has them). Returns fresh cells. */
+function paintPending(ax, az, bx, bz, r, now, h) {
+  const dx = bx - ax, dz = bz - az, s = dx * dx + dz * dz > 1e-6 ? stripeOf(dx, dz) : stripeOf(Math.sin(h), Math.cos(h));
+  let fresh = 0;
+  for (const yd of yardsAlong(ax, az, bx, bz, r)) {
+    const L = lawn[yd.i]; let any = false;
+    forCells(yd, ax, az, bx, bz, r, (c) => { if (yd.kind[c] !== GRASS || L.shown[c] === s) return; if (!L.shown[c]) fresh++; L.pend.set(c, { s, until: now + 2600 }); any = true; });
+    if (any) L.redraw = true;
+  }
+  return fresh;
+}
+/** On my screen: did I just mow into flowers? (The host decides the fine; this is the instant feedback.) */
+function myBeds(px, pz) {
+  for (const yd of yardsAlong(px, pz, me.x, me.z, me.r)) {
+    const L = lawn[yd.i];
+    forCells(yd, px, pz, me.x, me.z, me.r * BED_REACH, (c) => {
+      const b = yd.bedOf[c]; if (!b) return;
+      const bit = 1 << (b - 1), mine = me.hitBeds.get(yd.i) || 0;
+      if (L.fb & bit || mine & bit) return;
+      me.hitBeds.set(yd.i, mine | bit); petalFx({ y: yd.i, b: b - 1, by: net.sessionId, x: me.x, z: me.z });
+    });
+  }
+}
+function publish(now) {
+  if (now - me.lastSend < 80) return;
+  const k = JSON.stringify({ x: +me.x.toFixed(2), z: +me.z.toFixed(2), h: +me.h.toFixed(3), v: +me.v.toFixed(1), m: me.mowing ? 1 : 0, w: Math.round(me.r * 100), b: Math.round((me.bag / me.cap) * 100) });
+  if (k === me.sent && now - me.lastSend < 1000) return;
+  me.lastSend = now; me.sent = k; net.me.set("k", k);
+}
+/** Turn toward (ix, iz) and drive; slower while turning hard. Mowers have no reverse. */
+function steer(m, ix, iz, mag, dt, top) {
+  if (mag > 0.02 && (ix || iz)) {
+    const diff = wrap(Math.atan2(ix, iz) - m.h), align = Math.max(0, Math.cos(diff));
+    m.h = wrap(m.h + clamp(diff, -CONFIG.turn * dt, CONFIG.turn * dt));
+    m.v += clamp(top * mag * (0.3 + 0.7 * align * align) - m.v, -CONFIG.accel * 2 * dt, CONFIG.accel * dt);
+  } else m.v = Math.max(0, m.v - CONFIG.accel * 2 * dt);
+  m.x += Math.sin(m.h) * m.v * dt; m.z += Math.cos(m.h) * m.v * dt;
+}
+/** Keep a mower out of hedges, gnomes, bins and the truck, and on the board. Returns a gnome it bumped. */
+function collide(m) {
+  const R = 0.7; let gnome = null;
+  for (const s of SOLIDS) {
+    if (s.r !== undefined) {
+      const dx = m.x - s.x, dz = m.z - s.z, d = Math.hypot(dx, dz), min = s.r + R;
+      if (d < min && d > 1e-4) { m.x = s.x + (dx / d) * min; m.z = s.z + (dz / d) * min; m.v *= 0.7; if (s.gnome) gnome = s.gnome; }
+    } else {
+      const cx = clamp(m.x, s.x0, s.x1), cz = clamp(m.z, s.z0, s.z1), dx = m.x - cx, dz = m.z - cz, d = Math.hypot(dx, dz);
+      if (d >= R) continue;
+      if (d > 1e-4) { m.x = cx + (dx / d) * R; m.z = cz + (dz / d) * R; }
+      else { const o = [[s.x0 - R, m.z], [s.x1 + R, m.z], [m.x, s.z0 - R], [m.x, s.z1 + R]].sort((a, b) => Math.hypot(a[0] - m.x, a[1] - m.z) - Math.hypot(b[0] - m.x, b[1] - m.z))[0]; m.x = o[0]; m.z = o[1]; }
+      m.v *= 0.85;
+    }
+  }
+  m.x = clamp(m.x, -EDGE_X, EDGE_X); m.z = clamp(m.z, -BACK - 0.3, BACK + 0.3);
+  return gnome;
+}
+/** Nudge a mower out of the others (each player moves only its own). */
+function separate(m, all) {
+  for (const o of all) { if (o.id === (m.id || net.sessionId) || o.mine && m === me) continue; const dx = m.x - o.x, dz = m.z - o.z, d = Math.hypot(dx, dz); if (d < 1.5 && d > 0.01) { m.x += (dx / d) * (1.5 - d) * 0.5; m.z += (dz / d) * (1.5 - d) * 0.5; } }
+}
+/** Bumped a gnome: stall a moment, the gnome wobbles. */
+function bonk(gn, m) {
+  if (Date.now() - (m.bonkAt || 0) < 1500) return; // pushing on into the same gnome doesn't stall you again and again
+  m.bonkAt = Date.now(); m.stun = Date.now() + CONFIG.gnomeStunMs; m.v = 0;
+  const fx = { y: gn.y, n: gn.n }; net.send("bonk", fx); bonkFx(fx, m === me);
+}
+
+// ── OTHERS ──────────────────────────────────────────────────────────────────────────
+const views = new Map(), dogViews = new Map(); // id -> drawn mower / dog
+function viewOf(id, color, name) {
+  let v = views.get(id);
+  if (v && v.color !== color) { scene.remove(v.m.g); v = null; views.delete(id); } // they changed color
+  if (!v) { v = { m: makeMower(color, ATTRACT ? "" : name), color, x: 0, z: 0, h: 0, v: 0, lx: 0, lz: 0, fresh: true, raw: "", at: 0 }; views.set(id, v); }
+  return v;
+}
+/** Ease another mower toward where it should be now: its last report plus how far it has driven since. */
+function place(v, k, dt) {
+  const raw = k.x + "," + k.z + "," + k.h;
+  if (raw !== v.raw) { v.raw = raw; v.at = performance.now(); }
+  const age = Math.min(0.25, (performance.now() - v.at) / 1000), px = k.x + Math.sin(k.h) * k.v * age, pz = k.z + Math.cos(k.h) * k.v * age;
+  if (v.fresh || Math.hypot(px - v.x, pz - v.z) > 8) { v.x = v.lx = px; v.z = v.lz = pz; v.h = k.h; v.fresh = false; }
+  const e = 1 - Math.pow(0.0008, dt);
+  v.lx = v.x; v.lz = v.z;
+  v.x += (px - v.x) * e; v.z += (pz - v.z) * e; v.h += wrap(k.h - v.h) * e; v.v = k.v;
+}
+/** Draw every other mower, and paint the cuts they are making now (the host's grid confirms them a moment later). */
+function drawCrews(dt, now, d) {
+  const seen = new Set(), on = d && d.ph === "on", t = now / 1000;
+  for (const c of crews()) {
+    if (c.mine) continue;
+    seen.add(c.id);
+    const v = viewOf(c.id, c.color, c.name);
+    if (c.bot && hosting()) { const b = host.bots.get(c.id); v.x = b.x; v.z = b.z; v.h = b.h; v.v = b.v; poseMower(v.m, b.x, b.z, b.h, b.v, dt, b.bag / b.cap, b.r, b.mowing && b.v > 0.3, Date.now() < b.stun, t); continue; }
+    place(v, c, dt);
+    if (on && c.mow) { const n = paintPending(v.lx, v.lz, v.x, v.z, c.r, now, v.h); if (n) clipFx(v.x, v.z, v.h, v.v, n); }
+    poseMower(v.m, v.x, v.z, v.h, v.v, dt, c.bag, c.r, c.mow && v.v > 0.3, false, t);
+  }
+  for (const [id, v] of views) if (!seen.has(id)) { scene.remove(v.m.g); views.delete(id); }
+  if (!myModel || myModel.color !== myColor) { if (myModel) scene.remove(myModel.g); myModel = makeMower(myColor, ""); }
+  poseMower(myModel, me.x, me.z, me.h, me.v, dt, me.bag / me.cap, me.r, me.mowing && me.v > 0.3, Date.now() < me.stun, t);
+}
+function drawDogs(dt, now) {
+  const t = now / 1000;
+  for (const g of dogList()) {
+    let v = dogViews.get(g.i);
+    if (!v) { v = { m: makeDog(), x: g.x, z: g.z, h: g.h }; dogViews.set(g.i, v); }
+    if (hosting()) { v.x = g.x; v.z = g.z; v.h = g.h; }
+    else { const e = 1 - Math.pow(0.002, dt); v.x += (g.x - v.x) * e; v.z += (g.z - v.z) * e; v.h += wrap(g.h - v.h) * e; }
+    poseDog(v.m, v.x, v.z, v.h, g.s, t);
+  }
+}
+/** Two people joined at once in one color (or a bot has mine): the one with the higher sessionId picks a free one. */
+function fixColor() {
+  const others = Object.entries(S.entities.players || {}).filter(([id]) => id !== net.sessionId), bots = botList();
+  if (!others.some(([id, p]) => p.c === myColor && id < net.sessionId) && !bots.some((b) => b.c === myColor)) return;
+  const taken = new Set([...others.map(([, p]) => p.c), ...bots.map((b) => b.c)]);
+  myColor = COLORS.find((c) => !taken.has(c)) || myColor; net.me.set("c", myColor);
+}
+
+// ── HUD & RESULTS ───────────────────────────────────────────────────────────────────
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const mmss = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+let overFor = -1, startedAt = 0, myModel = null, firstPay = false;
+const tally = { paid: 0, perfect: 0, petals: 0, bonk: 0, bit: 0, dump: 0 }; // how many of each effect this screen has shown (read by the ?test hook)
+function toast(big, small = "") { if (ATTRACT) return; const t = $("toast"); t.innerHTML = `${esc(big)}${small ? `<small>${esc(small)}</small>` : ""}`; t.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("on"), 1900); }
+const signAt = (y) => ({ x: Y[y].cx, z: wz(Y[y], 1.1) });
+function paidFx(m) {
+  const yd = Y[m.y]; if (!yd) return;
+  tally.paid++; if (m.pf) tally.perfect++;
+  const { x, z } = signAt(m.y);
+  for (let k = 0; k < (m.pf ? 70 : 40); k++) spark(x, 2.6, z, rnd(-4, 4), rnd(4, 9), rnd(-4, 4), pick(m.pf ? ["#ffd23f", "#ff8fab", "#5bc0eb", "#b5ff7a", "#ffffff"] : ["#ffd23f", "#ffe680", "#f5b800"]), rnd(0.9, 1.6), 11, 1.6);
+  popText(`+$${m.tot}`, x, 3.8, z, "#ffe066");
+  if (m.pf) popText("PERFECT!", x, 6.1, z, "#8dff9e", 1.25);
+  const mine = (m.s || []).find((s) => s[0] === net.sessionId);
+  if (mine && !ATTRACT) { firstPay = true; toast(`+$${mine[1]}${m.pf ? " · PERFECT!" : ""}`, `No. ${yd.num} · stripes ${m.nt}% neat`); sfxCash(m.pf); }
+}
+function petalFx(m) {
+  tally.petals++;
+  const fx = typeof m.x === "number" ? m.x : signAt(m.y).x, fz = typeof m.z === "number" ? m.z : signAt(m.y).z;
+  for (let k = 0; k < 26; k++) spark(fx + rnd(-0.5, 0.5), 0.5, fz + rnd(-0.5, 0.5), rnd(-3, 3), rnd(2, 5), rnd(-3, 3), pick(FLOWERS), rnd(0.8, 1.4), 6);
+  if (m.by === net.sessionId) { if (!ATTRACT) { toast("Oops, the flowers!", `-$${CONFIG.flowerFine}`); sfx(520, 0.35, "triangle", 0.04, 200); } }
+  else popText(`-$${CONFIG.flowerFine}`, fx, 2.6, fz, "#ff8fab", 0.7);
+}
+function bonkFx(m, mine) {
+  const g = gnomes.find((o) => o.y === m.y && o.n === m.n); if (!g) return;
+  g.wob = 1; tally.bonk++; popText("BONK!", g.g.position.x, 2, g.g.position.z, "#ffffff", 0.6);
+  if (mine && !ATTRACT) sfx(110, 0.18, "square", 0.05, 60);
+}
+function woofFx(m) { popText("WOOF!", m.x, 2.2, m.z, "#ffd8a8", 0.8); if (Math.hypot(m.x - me.x, m.z - me.z) < 25) { sfx(300, 0.09, "square", 0.04, 180); setTimeout(() => sfx(280, 0.12, "square", 0.04, 150), 140); } }
+function bitFx(m) {
+  popText("GRR!", m.x, 2.4, m.z, "#ff6b6b", 0.8); tally.bit++;
+  if (m.to === net.sessionId) { me.stun = Date.now() + CONFIG.dogStunMs; me.v = 0; toast("The dog got you!", `-$${CONFIG.dogFine} · you stall for a moment`); sfx(180, 0.3, "sawtooth", 0.05, 90); }
+}
+function dumpFx(m) {
+  tally.dump++;
+  for (let k = 0; k < Math.min(40, 8 + m.n / 12); k++) { const T = rnd(0.45, 0.7), vx = (m.tx - m.x) / T, vz = (m.tz - m.z) / T; spark(m.x, 0.9, m.z, vx + rnd(-0.6, 0.6), 4.5 + rnd(0, 1.5), vz + rnd(-0.6, 0.6), pick(CLIP), T + 0.1, 12, 1.3); }
+  if (m.truck) heapLevel = Math.min(1, heapLevel + m.n / 6000);
+}
+/** What to do now, and where the arrow points: a bin when the bag is full, else the nearest job. */
+function guide(d) {
+  if (!d || d.ph !== "on") return { text: "", target: null };
+  if (me.bag >= me.cap) { const p = nearestDump(me.x, me.z); return { text: `<span class="warn">Bag full!</span><small>Drive to the truck or a compost bin to empty it</small>`, target: p, color: "#ff8a65" }; }
+  const yd = yardAt(me.x, me.z), L = yd && lawn[yd.i];
+  if (L && L.s === "o") {
+    const pct = Math.floor(L.ds.pct * 100);
+    return { text: L.f ? `${pct}%! Finish the patches for PERFECT<small>${Math.max(0, Math.ceil((L.f - Date.now()) / 1000))}s left on No. ${yd.num}</small>` : `No. ${yd.num} · $${L.p} · ${pct}% mowed<small>Straight rows make neat stripes</small>`, target: null };
+  }
+  let best = null, bd = Infinity;
+  lawn.forEach((L, i) => { if (L.s !== "o") return; const p = signAt(i), dist = Math.hypot(p.x - me.x, p.z - me.z); if (dist < bd) { bd = dist; best = p; } });
+  return { text: yd ? `No. ${yd.num} is mowed<small>Find a lawn with a price sign</small>` : best ? "Find a lawn with a price sign" : "Every lawn is mowed<small>New jobs grow back soon</small>", target: best, color: "#ffe066" };
+}
+function hud(d, now) {
+  if (ATTRACT) return;
+  const n = livePlayers().length, t = Date.now();
+  $("net").textContent = reconnecting ? "Reconnecting…" : net.offline ? "Offline: playing with bots" : `Online · ${n} player${n === 1 ? "" : "s"}${isHost() ? " · you run the street" : ""}`;
+  if (!d) return;
+  const mine = d.sc[net.sessionId] || [0, 0, 0];
+  $("clock").textContent = d.ph === "on" ? `Day ${d.id} · ${mmss(d.ends - t)} left` : `Day ${d.id} is over`;
+  $("cash").innerHTML = `$${mine[0]}<small>${mine[1]} yard${mine[1] === 1 ? "" : "s"} today</small>`;
+  const fill = clamp(me.bag / me.cap, 0, 1);
+  $("bagFill").style.width = `${Math.round(fill * 100)}%`; $("bagTxt").textContent = fill >= 1 ? "BAG FULL" : `BAG ${Math.round(fill * 100)}%`;
+  $("bag").classList.toggle("full", fill >= 1);
+  const rows = crews().map((c) => ({ ...c, cash: (d.sc[c.id] || [0])[0] })).sort((a, b) => b.cash - a.cash).slice(0, 5);
+  $("ranks").innerHTML = rows.map((c, k) => `<div class="${c.mine ? "me" : ""}">${k + 1}. ${esc(c.mine ? "You" : c.name)} $${c.cash}<i style="background:${esc(c.color)}"></i></div>`).join("");
+  $("status").innerHTML = guide(d).text;
+  if (!startedAt) startedAt = now;
+  $("hint").style.opacity = now - startedAt < 15000 && !firstPay ? 1 : 0;
+  $("hint").innerHTML = `<span>${touchUI ? "Drag anywhere to drive" : "WASD / arrows, or hold the mouse to drive"} · mow long grass · empty the bag at the truck</span>`;
+  // results
+  $("over").hidden = d.ph !== "end" || overFor === d.id;
+  if (d.ph === "end") {
+    if (me.banked !== d.id) bankDay(d);
+    const res = d.res.find((x) => x[4] === net.sessionId) || [myName, 0, 0, myColor, net.sessionId, 0];
+    $("overTitle").textContent = `Day ${d.id} is done!`;
+    $("overSub").textContent = `You earned $${res[1]} · ${res[2]} yard${res[2] === 1 ? "" : "s"}${res[5] ? ` · ${res[5]} PERFECT` : ""}`;
+    $("results").innerHTML = d.res.map((x) => `<li class="${x[4] === net.sessionId ? "me" : ""}"><i style="background:${esc(x[3])}"></i>${esc(x[4] === net.sessionId ? "You" : x[0])} <small>· ${x[2]} yard${x[2] === 1 ? "" : "s"}</small><span>$${x[1]}</span></li>`).join("");
+    $("overNext").textContent = `Next day in ${Math.max(0, Math.ceil((d.ends - t) / 1000))}s`;
+  }
+}
+/** The day is over: my cash goes into my savings and on the leaderboard. */
+function bankDay(d) {
+  me.banked = d.id;
+  const res = d.res.find((x) => x[4] === net.sessionId), cash = res ? Math.max(0, res[1]) : 0;
+  if (!ATTRACT && cash > 0) { save.bank += cash; save.best = Math.max(save.best, cash); saveNow(); }
+  renderUps(); showBoard(cash);
+}
+function showBoard(cash) {
+  const list = $("board");
+  if (!board) { list.innerHTML = "<li>Leaderboards need a connection.</li>"; return; }
+  list.innerHTML = "<li>Loading…</li>";
+  (cash > 0 ? board.submit(cash).catch(() => null) : Promise.resolve()).then(() => board.top(10)).then(({ entries }) => {
+    list.innerHTML = entries.length ? entries.map((e) => `<li>${esc(e.username || "Player")}<span>$${e.score}</span></li>`).join("") : "<li>No days yet. Set the first!</li>";
+  }).catch(() => { list.innerHTML = "<li>Couldn't load the leaderboard.</li>"; });
+}
+const UPGRADES = [["deck", "Wider deck"], ["speed", "Faster engine"], ["bag", "Bigger bag"]];
+function renderUps() {
+  $("upTitle").textContent = `Upgrades · savings $${save.bank}`;
+  $("ups").innerHTML = UPGRADES.map(([k, name]) => {
+    const lv = save.lv[k], cost = CONFIG.upgradeCost[lv];
+    return `<button class="up" data-k="${k}" ${lv >= 3 || save.bank < cost ? "disabled" : ""}><b>${name}</b><small>${"●".repeat(lv)}${"○".repeat(3 - lv)}</small><span>${lv >= 3 ? "MAX" : `$${cost}`}</span></button>`;
+  }).join("");
+}
+$("ups").addEventListener("click", (e) => {
+  const b = e.target.closest(".up"); if (!b || b.disabled) return;
+  const k = b.dataset.k, lv = save.lv[k], cost = CONFIG.upgradeCost[lv];
+  if (lv >= 3 || save.bank < cost) return;
+  save.bank -= cost; save.lv[k] = lv + 1; applyUpgrades(); saveNow(); renderUps(); sfxCash(false);
+});
+$("again").onclick = () => { overFor = day()?.id ?? -1; };
+// Savings and upgrades: a player save (namespace CONFIG.saveNs) plus this browser's copy.
+let save = { v: 1, at: 0, bank: 0, best: 0, lv: { deck: 0, speed: 0, bag: 0 } }, player = null, board = null;
+const stored = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+function applySave(s) { if (s && s.v === 1 && s.lv) { save = { ...save, ...s, lv: { deck: 0, speed: 0, bag: 0, ...s.lv } }; applyUpgrades(); } }
+async function saveNow() {
+  save.at = Date.now();
+  try { localStorage.setItem("mow-crew.save", JSON.stringify(save)); } catch {}
+  if (!player) return;
+  try { await player.data.set(save, { namespace: CONFIG.saveNs }); }
+  catch (e) { if (e && e.current) player.data.set(save, { namespace: CONFIG.saveNs, version: e.current.version }).catch(() => {}); } // another device saved in between: ours is newer
+}
+async function loadAccountSave() { try { const r = await player.data.get(CONFIG.saveNs); if (r && r.data && r.data.v === 1 && r.data.at > save.at) applySave(r.data); } catch {} }
+// Sound: an engine hum and little blips, started by the first key or tap (browsers block sound before that).
+let audio = null, engine = null;
+function wakeAudio() {
+  if (ATTRACT) return;
+  if (!audio) { try { audio = new AudioContext(); } catch { return; } }
+  if (audio.state === "suspended") audio.resume();
+  if (!engine) {
+    const o = audio.createOscillator(), f = audio.createBiquadFilter(), g = audio.createGain();
+    o.type = "sawtooth"; o.frequency.value = 55; f.type = "lowpass"; f.frequency.value = 420; g.gain.value = 0;
+    o.connect(f).connect(g).connect(audio.destination); o.start(); engine = { o, g };
+  }
+}
+function engineTick(now) {
+  if (!engine) return;
+  const cutting = me.cutAt && now - me.cutAt < 150, t = audio.currentTime;
+  engine.g.gain.setTargetAtTime(me.v > 0.3 ? (cutting ? 0.045 : 0.03) : 0.012, t, 0.08);
+  engine.o.frequency.setTargetAtTime(48 + me.v * 5 + (cutting ? 16 : 0), t, 0.1);
+}
+function sfx(freq, dur, type = "square", vol = 0.04, slideTo = 0) {
+  if (!audio || ATTRACT) return;
+  try {
+    const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime;
+    o.type = type; o.frequency.setValueAtTime(freq, t); if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(audio.destination); o.start(t); o.stop(t + dur);
+  } catch {}
+}
+function sfxCash(big) { sfx(1320, 0.08, "square", 0.04); setTimeout(() => sfx(1760, 0.16, "square", 0.04), 80); if (big) [1046, 1318, 1568, 2093].forEach((f, k) => setTimeout(() => sfx(f, 0.14, "triangle", 0.05), 220 + k * 90)); }
+
+// ── INPUT ───────────────────────────────────────────────────────────────────────────
+// Directions are on screen: up drives away from you (toward the top), right drives right.
+const touchUI = matchMedia("(pointer: coarse)").matches && !ATTRACT;
+const keys = { left: false, right: false, up: false, down: false };
+const KEYS = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", ArrowUp: "up", w: "up", W: "up", ArrowDown: "down", s: "down", S: "down" };
+const mouse = { down: false, x: 0, y: 0 }, stick = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
+const ray = new THREE.Raycaster(), ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit = new THREE.Vector3(), ndc = new THREE.Vector2();
+/** The ground point under a screen point, through the camera that drew the frame. */
+function groundAt(sx, sy) { ndc.set((sx / innerWidth) * 2 - 1, -(sy / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera); return ray.ray.intersectPlane(ground, hit); }
+function readInput() {
+  let ix = (keys.right ? 1 : 0) - (keys.left ? 1 : 0), iz = (keys.down ? 1 : 0) - (keys.up ? 1 : 0), mag = ix || iz ? 1 : 0;
+  if (stick.id !== null) { const dx = stick.x - stick.ox, dy = stick.y - stick.oy, len = Math.hypot(dx, dy); if (len > 8) { ix = dx; iz = dy; mag = Math.min(1, len / 50); } }
+  else if (mouse.down) { const p = groundAt(mouse.x, mouse.y); if (p) { const dx = p.x - me.x, dz = p.z - me.z, len = Math.hypot(dx, dz); if (len > 0.6) { ix = dx; iz = dz; mag = Math.min(1, len / 2.5); } } }
+  return { ix, iz, mag };
+}
+addEventListener("keydown", (e) => { wakeAudio(); const k = KEYS[e.key]; if (k) { e.preventDefault(); keys[k] = true; } });
+addEventListener("keyup", (e) => { const k = KEYS[e.key]; if (k) keys[k] = false; });
+addEventListener("blur", () => { for (const k in keys) keys[k] = false; mouse.down = false; stick.id = null; $("stick").hidden = true; });
+const cvs = renderer.domElement;
+cvs.addEventListener("pointerdown", (e) => {
+  e.preventDefault(); wakeAudio();
+  if (e.pointerType === "mouse") { mouse.down = true; mouse.x = e.clientX; mouse.y = e.clientY; return; }
+  if (stick.id !== null) return;
+  Object.assign(stick, { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY });
+  try { cvs.setPointerCapture(e.pointerId); } catch {} // only keeps the drag when the finger leaves the canvas
+  const s = $("stick"); s.hidden = false; s.style.left = e.clientX + "px"; s.style.top = e.clientY + "px"; s.firstChild.style.transform = "";
+});
+cvs.addEventListener("pointermove", (e) => {
+  if (e.pointerType === "mouse") { mouse.x = e.clientX; mouse.y = e.clientY; return; }
+  if (e.pointerId !== stick.id) return;
+  stick.x = e.clientX; stick.y = e.clientY;
+  const dx = stick.x - stick.ox, dy = stick.y - stick.oy, len = Math.hypot(dx, dy), k = len > 40 ? 40 / len : 1;
+  $("stick").firstChild.style.transform = `translate(${dx * k}px, ${dy * k}px)`;
+});
+for (const ev of ["pointerup", "pointercancel"]) addEventListener(ev, (e) => { if (e.pointerType === "mouse") mouse.down = false; if (e.pointerId === stick.id) { stick.id = null; $("stick").hidden = true; } });
+document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
+
+// ── MAIN LOOP ───────────────────────────────────────────────────────────────────────
+let last = performance.now(), lastHb = 0, lastHud = 0, camReady = false;
+const camPos = new THREE.Vector3(), camLook = new THREE.Vector3();
+/** Forget everything only a host keeps; the next read takes the yards from state. */
+function dropHost() { host.was = false; host.last = null; host.trails.clear(); for (const L of lawn) L.raw = null; }
+function frame(now) {
+  requestAnimationFrame(frame);
+  const t0 = performance.now(); // not `now`: the first frame after a freeze can be stamped from before it ended
+  if (frameAt && t0 - frameAt > 1000) { wokeAt = t0; dropHost(); } // woke from a stall: another player ran the street meanwhile, so adopt state again (see isHost)
+  frameAt = t0;
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;
+  if (now - lastHb > 1000) { lastHb = now; net.me.set("hb", Date.now()); fixColor(); }
+  if (isHost()) hostTick(dt, now); else if (host.was) dropHost();
+  if (!hosting()) for (let i = 0; i < Y.length; i++) readLawn(i);
+  const d = day();
+  myTick(dt, now, d);
+  drawCrews(dt, now, d);
+  drawDogs(dt, now);
+  // the yards: drop pending cuts the host now has, redraw what changed, signs, flowers
+  lawn.forEach((L, i) => {
+    const yd = Y[i];
+    for (const [c, p] of L.pend) if (now > p.until || L.g[c] === p.s) { L.pend.delete(c); L.redraw = true; }
+    if (L.redraw) drawLawn(yd, L, now);
+    growTufts(yd, L, now);
+    if (now - L.dsAt > 200) { L.dsAt = now; L.ds = yardStats(yd, L.shown); }
+    updateSign(yd, L);
+    for (const [b] of yd.beds.entries()) if (L.fb & (1 << b)) me.hitBeds.set(i, (me.hitBeds.get(i) || 0) & ~(1 << b)); // the host has it now
+    const mask = L.fb | (me.hitBeds.get(i) || 0);
+    if (mask !== (flat.get(i) || 0)) setFlowers(i, mask);
+  });
+  // props: sprinklers spray, gnomes wobble, the truck's heap
+  const tNow = Date.now(), ts = now / 1000;
+  for (const s of sprinklers) {
+    const on = sprinklerOn(s.yd, tNow);
+    s.wet.material.opacity += ((on ? 0.22 : 0) - s.wet.material.opacity) * Math.min(1, dt * 2);
+    if (on && Math.hypot(s.x - camLook.x, s.z - camLook.z) < 40) { s.a += dt * 2.6; for (let k = 0; k < 3; k++) { const a = s.a + rnd(-0.25, 0.25), sp = rnd(2.2, 4.2); spark(s.x, 0.3, s.z, Math.cos(a) * sp, rnd(3, 4.5), Math.sin(a) * sp, pick(["#bfe6ff", "#e0f4ff", "#8fd0ff"]), rnd(0.6, 0.9), 9, 0.8); } }
+  }
+  for (const g of gnomes) { if (g.wob > 0) g.wob = Math.max(0, g.wob - dt * 1.4); g.g.rotation.z = Math.sin(ts * 25) * 0.35 * g.wob; }
+  heap.scale.set(1.4, 0.25 + heapLevel * 0.55, 0.8);
+  effectsTick(dt);
+  engineTick(now);
+  wind.value = ts;
+  // the camera: high and a little behind, looking down at my mower (higher on a tall phone screen)
+  const k = Math.max(1, 0.85 / camera.aspect) ** 0.85, back = (ATTRACT ? 11 : 13) * k, up = (ATTRACT ? 21 : 25) * k;
+  const inYard = ATTRACT && yardAt(me.x, me.z), fx = inYard ? (me.x + inYard.cx) / 2 : me.x; // the preview keeps my whole yard (and its sign) in view
+  camPos.set(fx, up, me.z + back); V.set(fx, 0, me.z - 1.2);
+  if (!camReady) { camera.position.copy(camPos); camLook.copy(V); camReady = true; }
+  camera.position.lerp(camPos, 1 - Math.pow(0.03, dt)); camLook.lerp(V, 1 - Math.pow(0.02, dt));
+  camera.lookAt(camLook);
+  sun.position.copy(camLook).add(SUN_OFF); sun.target.position.copy(camLook);
+  const g = guide(d);
+  arrow.visible = !!g.target && !ATTRACT && Math.hypot(g.target.x - me.x, g.target.z - me.z) > 6;
+  if (arrow.visible) { const a = Math.atan2(g.target.x - me.x, g.target.z - me.z); arrow.position.set(me.x + Math.sin(a) * 1.9, 1.9 + Math.sin(ts * 4) * 0.12, me.z + Math.cos(a) * 1.9); arrow.rotation.y = a; arrow.material.color.set(g.color); }
+  renderer.render(scene, camera);
+  if (now - lastHud > 100) { lastHud = now; hud(d, now); }
+}
+
+(async function start() {
+  document.body.classList.toggle("attract", ATTRACT);
+  if (ATTRACT) $("net").textContent = "";
+  try { applySave(JSON.parse(stored("mow-crew.save") || "null")); } catch {}
+  net = await connect();
+  net.onState((st) => { S = st; });
+  net.on("paid", (m) => { if (m && typeof m.y === "number") paidFx(m); });
+  net.on("petals", (m) => { if (m && typeof m.y === "number" && !(m.by === net.sessionId && (me.hitBeds.get(m.y) || 0) & (1 << m.b))) petalFx(m); });
+  net.on("bit", (m) => { if (m && typeof m.x === "number") bitFx(m); });
+  net.on("woof", (m) => { if (m && typeof m.x === "number") woofFx(m); });
+  net.on("bonk", (m) => { if (m && typeof m.y === "number") bonkFx(m, false); });
+  net.on("dump", (m) => { if (m && typeof m.x === "number") dumpFx(m); });
+  net.onDisconnect(() => { reconnecting = true; $("net").textContent = "Reconnecting…"; });
+  net.onReconnect(() => { reconnecting = false; });
+  net.onLive((live) => { $("event").textContent = ((live && live.active) || []).map((e) => e.title).join(" · "); });
+  if (!net.offline && typeof MP !== "undefined") { player = MP.auth({ key: MP_CONNECT.key, apiUrl: MP_CONNECT.apiUrl }); board = player.leaderboard(CONFIG.board); loadAccountSave(); }
+  const taken = new Set([...Object.entries(S.entities.players || {}).filter(([id]) => id !== net.sessionId).map(([, p]) => p.c), ...shared("bots", []).map((b) => b && b.c)]);
+  myColor = COLORS.find((c) => !taken.has(c)) || pick(COLORS);
+  me.id = net.sessionId; spawnMe();
+  net.me.set({ n: myName, c: myColor, hb: Date.now() });
+  renderUps();
+  if (TEST) window.__test = { me, keys, S: () => S, day, lawn, Y, isHost, botList, dogList, crews, host, yardStats, views, camera, groundAt, tally, mouse, stick, save: () => save };
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "name": "Mow Crew",
+  "genre": "sim",
+  "dim": "3D",
+  "mode": "Drop-in",
+  "players": "1–8",
+  "hook": "Mow the street's lawns in perfect stripes.",
+  "how": "Ride over a yard with a price sign to cut it: straight rows leave neat light and dark stripes, and it pays once 95% is cut, split by who mowed it (neat stripes earn a PERFECT bonus). Empty your bag at the truck, dodge the flower beds and gnomes, and don't wake the dog.",
+  "controls": "WASD or arrow keys, or hold the mouse where to drive; on a phone, drag anywhere",
+  "uses": [
+    ["Leaderboard", "Each player's best day's cash."],
+    ["Bots", "Bot crews pick yards and mow them in rows until enough people join."],
+    ["Host-run rules", "The host's browser keeps every lawn's grass, pays the yards, runs the clock and the dogs; if it leaves, the next player takes over."],
+    ["Host-run rounds", "Work days of three minutes with a results card between them."],
+    ["Live sync", "Everyone sees the same stripes appear as anyone mows."],
+    ["Saves", "Your savings and upgrades are kept for you between visits."],
+    ["Live ops", "Raise every yard's price with no new deploy; an event's title shows on screen."]
+  ],
+  "ideas": [
+    "Add a leaf blower power-up that clears a whole row at once",
+    "Make it autumn, with leaves to rake instead of grass",
+    "Add a rain shower that makes all the grass grow faster"
+  ]
+}
