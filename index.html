@@ -43,6 +43,7 @@
   .card p { margin: 4px 0 0; font-size: 14px; opacity: .9; }
   .card ol { margin: 0; padding-left: 24px; text-align: left; font-size: 14px; }
   .card li { margin: 2px 0; } .card li span { float: right; font-variant-numeric: tabular-nums; }
+  .card li.note { list-style: none; opacity: .8; }
   .card li.me { color: #ffe066; font-weight: 800; } .card li i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; }
   .up { display: flex; align-items: center; gap: 8px; box-sizing: border-box; width: 100%; min-height: 46px; margin-top: 6px; padding: 6px 10px; border: 0; border-radius: 12px; background: #ffffff1c; color: #fff; font: 700 14px system-ui, sans-serif; text-align: left; cursor: pointer; }
   .up b { flex: 1; } .up small { letter-spacing: 2px; color: #a6e36b; } .up span { min-width: 54px; padding: 4px 8px; border-radius: 8px; background: #ffe066; color: #3a2a00; text-align: center; font-weight: 900; }
@@ -67,7 +68,7 @@
 <div id="over" hidden><div class="card">
   <h2 id="overTitle">Day done!</h2><p id="overSub"></p>
   <h3>Crews today</h3><ol id="results"></ol>
-  <h3>Best days on the street</h3><ol id="board"><li>Loading…</li></ol>
+  <h3>Best days on the street</h3><ol id="board"><li class="note">Loading…</li></ol>
   <h3 id="upTitle">Upgrades</h3><div id="ups"></div>
   <button class="go" id="again">Back to work</button><p id="overNext"></p>
 </div></div>
@@ -794,7 +795,7 @@ function crews() {
     const k = parseOnce("k:" + id, p.k, null);
     if (k && typeof k.x === "number") out.push({ id, name: String(p.n ?? "Mower").slice(0, 16), color: p.c || "#ccc", x: k.x, z: k.z, h: k.h || 0, v: k.v || 0, r: (k.w || 65) / 100, mow: !!k.m, bag: (k.b || 0) / 100 });
   }
-  for (const b of botList()) out.push({ id: b.i, name: b.n, color: b.c, x: b.x, z: b.z, h: b.h, v: b.v, r: (b.r || 65) / 100, mow: !!b.m, bag: (b.b || 0) / 100, bot: true });
+  for (const b of botList()) out.push({ id: b.i, name: b.n, color: b.c, x: b.x, z: b.z, h: b.h, v: b.v, r: (b.r || 65) / 100, mow: !!b.m, bag: (b.b || 0) / 100, st: !!b.st, bot: true });
   return out;
 }
 function addScore(sc, id, cash, yards = 0, perfects = 0) {
@@ -1167,7 +1168,7 @@ function myTick(dt, now, d) {
   const t = Date.now(), px = me.x, pz = me.z, on = d.ph === "on", stunned = t < me.stun;
   let ix = 0, iz = 0, mag = 0;
   if (ATTRACT) { if (on && !stunned) { const [tx, tz, m] = botBrain(me, t, dt); ix = tx - me.x; iz = tz - me.z; mag = m; } }
-  else if (!stunned) ({ ix, iz, mag } = readInput());
+  else if (!stunned && !(d.ph === "end" && overFor !== d.id)) ({ ix, iz, mag } = readInput()); // keys don't drive behind the results card
   const wet = wetAt(me.x, me.z);
   steer(me, ix, iz, mag, dt, me.top * (wet ? CONFIG.wetSlow : 1));
   if (stunned) me.v = 0;
@@ -1281,7 +1282,7 @@ function drawCrews(dt, now, d) {
     if (c.bot && hosting()) { const b = host.bots.get(c.id); v.x = b.x; v.z = b.z; v.h = b.h; v.v = b.v; poseMower(v.m, b.x, b.z, b.h, b.v, dt, b.bag / b.cap, b.r, b.mowing && b.v > 0.3, Date.now() < b.stun, t); continue; }
     place(v, c, dt);
     if (on && c.mow) { const n = paintPending(v.lx, v.lz, v.x, v.z, c.r, now, v.h); if (n) clipFx(v.x, v.z, v.h, v.v, n); }
-    poseMower(v.m, v.x, v.z, v.h, v.v, dt, c.bag, c.r, c.mow && v.v > 0.3, false, t);
+    poseMower(v.m, v.x, v.z, v.h, v.v, dt, c.bag, c.r, c.mow && v.v > 0.3, !!c.st, t); // a bot the dog got shakes on every screen
   }
   for (const [id, v] of views) if (!seen.has(id)) { scene.remove(v.m.g); views.delete(id); }
   if (!myModel || myModel.color !== myColor) { if (myModel) scene.remove(myModel.g); myModel = makeMower(myColor, ""); }
@@ -1395,11 +1396,11 @@ function bankDay(d) {
 }
 function showBoard(cash) {
   const list = $("board");
-  if (!board) { list.innerHTML = "<li>Leaderboards need a connection.</li>"; return; }
-  list.innerHTML = "<li>Loading…</li>";
+  if (!board) { list.innerHTML = `<li class="note">Leaderboards need a connection.</li>`; return; } // status lines are "note"s: not numbered like entries
+  list.innerHTML = `<li class="note">Loading…</li>`;
   (cash > 0 ? board.submit(cash).catch(() => null) : Promise.resolve()).then(() => board.top(10)).then(({ entries }) => {
-    list.innerHTML = entries.length ? entries.map((e) => `<li>${esc(e.username || "Player")}<span>$${e.score}</span></li>`).join("") : "<li>No days yet. Set the first!</li>";
-  }).catch(() => { list.innerHTML = "<li>Couldn't load the leaderboard.</li>"; });
+    list.innerHTML = entries.length ? entries.map((e) => `<li>${esc(e.username || "Player")}<span>$${e.score}</span></li>`).join("") : `<li class="note">No days yet. Set the first!</li>`;
+  }).catch(() => { list.innerHTML = `<li class="note">Couldn't load the leaderboard.</li>`; });
 }
 const UPGRADES = [["deck", "Wider deck"], ["speed", "Faster engine"], ["bag", "Bigger bag"]];
 function renderUps() {
@@ -1476,9 +1477,10 @@ addEventListener("keydown", (e) => { wakeAudio(); const k = KEYS[e.key]; if (k) 
 addEventListener("keyup", (e) => { const k = KEYS[e.key]; if (k) keys[k] = false; });
 addEventListener("blur", () => { for (const k in keys) keys[k] = false; mouse.down = false; stick.id = null; $("stick").hidden = true; });
 const cvs = renderer.domElement;
+cvs.addEventListener("contextmenu", (e) => e.preventDefault()); // a right-click doesn't open the browser menu over the street
 cvs.addEventListener("pointerdown", (e) => {
   e.preventDefault(); wakeAudio();
-  if (e.pointerType === "mouse") { mouse.down = true; mouse.x = e.clientX; mouse.y = e.clientY; return; }
+  if (e.pointerType === "mouse") { if (e.button !== 0) return; mouse.down = true; mouse.x = e.clientX; mouse.y = e.clientY; return; }
   if (stick.id !== null) return;
   Object.assign(stick, { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY });
   try { cvs.setPointerCapture(e.pointerId); } catch {} // only keeps the drag when the finger leaves the canvas
@@ -1513,6 +1515,7 @@ function frame(now) {
   drawCrews(dt, now, d);
   drawDogs(dt, now);
   // the yards: drop pending cuts the host now has, redraw what changed, signs, flowers
+  const myYard = ATTRACT ? null : yardAt(me.x, me.z);
   lawn.forEach((L, i) => {
     const yd = Y[i];
     for (const [c, p] of L.pend) if (now > p.until || L.g[c] === p.s) { L.pend.delete(c); L.redraw = true; }
@@ -1520,6 +1523,7 @@ function frame(now) {
     growTufts(yd, L, now);
     if (now - L.dsAt > 200) { L.dsAt = now; L.ds = yardStats(yd, L.shown); }
     updateSign(yd, L);
+    yd.sign.material.opacity = myYard === yd && L.s === "o" ? 0.3 : 1; // the status line shows my yard's price and progress: its sign fades so the two don't print over each other
     for (const [b] of yd.beds.entries()) if (L.fb & (1 << b)) me.hitBeds.set(i, (me.hitBeds.get(i) || 0) & ~(1 << b)); // the host has it now
     const mask = L.fb | (me.hitBeds.get(i) || 0);
     if (mask !== (flat.get(i) || 0)) setFlowers(i, mask);
