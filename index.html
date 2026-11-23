@@ -274,7 +274,7 @@ function rowSpan(yd, w, dr) {
   const reach = dr * BED_REACH + 0.15;
   const cut = (lo, hi) => { if (hi <= a || lo >= b) return; if (lo - a >= b - hi) b = Math.min(b, lo); else a = Math.max(a, hi); }; // keep the longer side
   const circle = (cu, cw, R) => { const dw = Math.abs(w - cw); if (dw < R) { const h = Math.sqrt(R * R - dw * dw); cut(cu - h, cu + h); } };
-  for (const bd of yd.beds) { if (bd.kind === "strip") { if (w + reach > bd.w0) cut(bd.u0 - reach, bd.u1 + reach); } else circle(bd.u, bd.w, bd.r + reach); }
+  for (const bd of yd.beds) { if (bd.kind === "strip") { if (w + reach > bd.w0) cut(bd.u0 - reach, bd.u1 + reach); } else circle(bd.u, bd.w, bd.r + reach + 0.25); } // a little more room at a round bed: a mower overshoots the row's end
   for (const s of yd.solidsL) circle(s.u, s.w, s.r + dr + 0.9);
   return b - a > 1.2 ? { w, a, b } : null;
 }
@@ -308,10 +308,10 @@ for (const yd of Y) {
     yd.cover[c] = best;
   }
 }
-/** Can a mower drive straight from a to b in this yard without chopping flowers or bumping a gnome? */
-function clearPath(yd, ax, az, bx, bz, r) {
+/** Can a mower drive straight from a to b in this yard without chopping flowers or bumping a gnome? (pad: extra room kept from beds) */
+function clearPath(yd, ax, az, bx, bz, r, pad = 0.3) {
   let ok = true;
-  forCells(yd, ax, az, bx, bz, r * BED_REACH + 0.3, (c) => { if (yd.bedOf[c]) ok = false; });
+  forCells(yd, ax, az, bx, bz, r * BED_REACH + pad, (c) => { if (yd.bedOf[c]) ok = false; });
   if (!ok) return false;
   const dx = bx - ax, dz = bz - az, len2 = dx * dx + dz * dz || 1;
   return yd.solidsL.every((s) => { const sx = wx(yd, s.u), sz = wz(yd, s.w), t = clamp(((sx - ax) * dx + (sz - az) * dz) / len2, 0, 1); return Math.hypot(ax + dx * t - sx, az + dz * t - sz) > s.r + 1.1; });
@@ -1020,7 +1020,7 @@ function think(b, t) {
     const L = lawn[b.yard];
     if (!b.patch || L.g[b.patch.c] || t > b.thinkAt) { b.thinkAt = t + 700; b.patch = nearestPatch(b, yd); }
     if (!b.patch) { b.avoid = b.yard; b.avoidUntil = t + 15000; b.mode = "pick"; return [b.x, b.z, 0]; }
-    if (b.patch.street && yardAt(b.x, b.z) === yd) return [b.x, Math.sign(b.z) * LANE, 1];
+    if (b.patch.street && yardAt(b.x, b.z) === yd) return leaveYard(b, yd);
     const dist = Math.hypot(b.patch.x - b.x, b.patch.z - b.z);
     if (dist < 0.2) { (b.skip = b.skip || new Set()).add(b.patch.c); b.patch = null; return [b.x, b.z, 0]; } // parked on it and it's still long: leave that one
     return via(b, b.patch.x, b.patch.z, clamp(0.35 + dist / 2, 0, 1));
@@ -1082,13 +1082,25 @@ const lotOf = (x) => LOT_X.reduce((best, cx, k) => (Math.abs(x - cx - 1.5) < Mat
 function via(b, tx, tz, mag) {
   const inYard = Math.abs(b.z) > WALK, toYard = Math.abs(tz) > WALK;
   const sameLot = inYard && toYard && Math.sign(b.z) === Math.sign(tz) && lotOf(b.x) === lotOf(tx);
-  if (inYard && !sameLot) return [b.x, Math.sign(b.z) * LANE, 1];
+  if (inYard && !sameLot) { const yd = yardAt(b.x, b.z); return yd ? leaveYard(b, yd) : [b.x, Math.sign(b.z) * LANE, 1]; }
   if (!inYard && toYard) {
     const lane = Math.sign(tz) * LANE;
     if (Math.abs(b.z - lane) > 0.8 && Math.abs(b.x - tx) > 1.2) return Math.abs(b.x) < 3.8 ? [b.x < 0 ? -4.6 : 4.6, b.z, 1] : [b.x, lane, 1]; // cross the road, not through the truck
-    if (Math.abs(b.x - tx) > 1.2) return [tx, lane, 1];
+    if (Math.abs(b.x - tx) > 0.5) return [tx, lane, 1]; // line up with where it goes in (the way in was checked for beds there)
   }
   return [tx, tz, Math.hypot(tx - b.x, tz - b.z) < 0.15 ? 0 : mag];
+}
+/** Out of a yard to the street without mowing through a flower bed (the round ones sit in the front
+ *  corners): straight out when that's clear, else first across the lawn to where it is. */
+function leaveYard(b, yd) {
+  const u = lu(yd, b.x), w = lw(yd, b.z), out = wz(yd, -0.3), street = [b.x, Math.sign(b.z) * LANE, 1];
+  if (clearPath(yd, b.x, b.z, b.x, out, b.r)) return street;                                // straight out
+  for (const eu of [YW / 2, u - 3, u + 3, 3.2, YW - 3.2]) {
+    if (eu < 0.8 || eu > YW - 0.8) continue;
+    const ex = wx(yd, eu);
+    if (clearPath(yd, ex, b.z, ex, out, b.r) && clearPath(yd, b.x, b.z, ex, b.z, b.r, 0)) return [ex, b.z, 1]; // across first
+  }
+  return w < YD - 2.5 ? [b.x, wz(yd, w + 2.5), 1] : street; // boxed in by a bed and a gnome: back up the lawn and look again
 }
 /** Empty a bag at a bin or the truck (anyone's: bots, my autopilot, me). */
 function emptyBag(m, p) {
